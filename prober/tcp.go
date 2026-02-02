@@ -49,6 +49,7 @@ func ProbeTCP(ctx context.Context, logger *slog.Logger, target string, module co
 
 type queryResponse struct {
 	expect      string
+	expectArray []string // multiple regex patterns - all must match (reads lines until all found)
 	send        string
 	sendBytes   []byte
 	expectBytes []byte
@@ -68,19 +69,19 @@ var (
 	startTLSqueryResponses = map[string][]queryResponse{
 		"smtp": []queryResponse{
 			queryResponse{
-				expect: "^220",
+				expect: "^220 ",
 			},
 			queryResponse{
 				send: "EHLO prober",
 			},
 			queryResponse{
-				expect: "^250(-| )STARTTLS",
+				expectArray: []string{"^250(-| )STARTTLS", "^250 "},
 			},
 			queryResponse{
 				send: "STARTTLS",
 			},
 			queryResponse{
-				expect: "^220",
+				expect: "^220 ",
 			},
 		},
 		"ftp": []queryResponse{
@@ -215,6 +216,44 @@ func startTLS(logger *slog.Logger, conn net.Conn, proto string) error {
 
 	scanner := bufio.NewScanner(conn)
 	for _, qr := range actions {
+		if len(qr.expectArray) > 0 {
+			matched := make(map[int]bool)
+			for scanner.Scan() {
+				line := scanner.Bytes()
+				logger.Debug(fmt.Sprintf("read line: %s", string(line)))
+				for i, pattern := range qr.expectArray {
+					if matched[i] {
+						continue
+					}
+					match, err := regexp.Match(pattern, line)
+					if err != nil {
+						return err
+					}
+					if match {
+						matched[i] = true
+						logger.Debug(fmt.Sprintf("regex: %s matched: %s", pattern, string(line)))
+					}
+				}
+				allMatched := true
+				for i := range qr.expectArray {
+					if !matched[i] {
+						allMatched = false
+						break
+					}
+				}
+				if allMatched {
+					break
+				}
+			}
+			if scanner.Err() != nil {
+				return scanner.Err()
+			}
+			for i, pattern := range qr.expectArray {
+				if !matched[i] {
+					return fmt.Errorf("regex: %s didn't match in response", pattern)
+				}
+			}
+		}
 		if qr.expect != "" {
 			var match bool
 			for scanner.Scan() {

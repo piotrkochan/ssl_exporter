@@ -81,6 +81,7 @@ func (t *TCPServer) StartSMTP() {
 			panic("Error setting deadline")
 		}
 
+		fmt.Fprintf(conn, "220-ESMTP StartTLS pseudo-server\n") // Greylisting
 		fmt.Fprintf(conn, "220 ESMTP StartTLS pseudo-server\n")
 		if _, e := fmt.Fscanf(conn, "EHLO prober\n"); e != nil {
 			panic("Error in dialog. No EHLO received.")
