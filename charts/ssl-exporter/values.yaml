@@ -1,0 +1,161 @@
+# Default values for ssl-exporter.
+
+replicaCount: 1
+
+image:
+  repository: piotrkochan/ssl-exporter
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount the service account token
+  automountServiceAccountToken: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 9219
+
+# Extra command-line arguments for ssl_exporter
+extraArgs: []
+# - --log.level=debug
+
+# Extra environment variables
+extraEnv: []
+# - name: HTTPS_PROXY
+#   value: "http://proxy:8080"
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 50m
+  #   memory: 64Mi
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+extraVolumeMounts: []
+# - name: certs
+#   mountPath: /etc/ssl/certs
+
+extraVolumes: []
+# - name: certs
+#   secret:
+#     secretName: my-tls-secret
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  # namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  # Additional labels for ServiceMonitor selection
+  labels: {}
+  # Metric relabeling
+  metricRelabelings: []
+  # Target relabeling
+  relabelings: []
+
+# Web configuration for TLS and basic auth (--web.config.file)
+# See: https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
+webConfig:
+  enabled: false
+  # Existing Secret containing web-config.yaml key
+  # If set, the chart will not create a Secret
+  existingSecret: ""
+  # Inline web-config.yaml content (when existingSecret is empty)
+  # Passwords in basic_auth_users must be bcrypt-hashed
+  data: {}
+    # basic_auth_users:
+    #   admin: "$2y$10$..."
+
+# TLS configuration for the exporter's own endpoints
+tls:
+  enabled: false
+  # Existing kubernetes.io/tls Secret name
+  # If set, certManager section is ignored
+  existingSecret: ""
+  # Mount path for TLS cert/key inside the container
+  mountPath: /etc/tls
+  # cert-manager Certificate resource (optional)
+  certManager:
+    enabled: false
+    # Issuer reference — must exist in the cluster
+    issuerRef:
+      name: ""
+      kind: ClusterIssuer
+    # Certificate duration (default 1 year)
+    duration: 8760h
+    # Renew before expiry
+    renewBefore: 720h
+    # DNS names for the certificate
+    dnsNames: []
+    #  - ssl-exporter.monitoring.svc
+
+config:
+  enabled: true
+  # Use an existing ConfigMap instead of creating one
+  # If set, config.data is ignored
+  existingConfigMap: ""
+  data: |
+    modules:
+      https:
+        prober: https
+      tcp:
+        prober: tcp
+      file:
+        prober: file
+      kubernetes:
+        prober: kubernetes

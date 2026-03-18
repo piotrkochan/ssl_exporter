@@ -1,0 +1,21 @@
+apiVersion: v2
+name: ssl-exporter
+description: SSL Certificate Exporter for Prometheus
+type: application
+version: 0.2.0
+appVersion: "2.5.1"
+home: https://github.com/piotrkochan/ssl_exporter
+sources:
+  - https://github.com/piotrkochan/ssl_exporter
+maintainers:
+  - name: "@skoef"
+    url: https://github.com/skoef
+  - name: "@piotrkochan"
+    url: https://github.com/piotrkochan
+keywords:
+  - ssl
+  - tls
+  - prometheus
+  - exporter
+  - monitoring
+  - certificates

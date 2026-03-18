@@ -1,0 +1,133 @@
+suite: certificate
+templates:
+  - certificate.yaml
+tests:
+  - it: is not created when tls disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is not created when tls enabled but certManager disabled
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-tls
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is not created when existingSecret is set even if certManager enabled
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-tls
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is created when tls and certManager enabled without existingSecret
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+            kind: ClusterIssuer
+          duration: 8760h
+          renewBefore: 720h
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Certificate
+      - equal:
+          path: apiVersion
+          value: cert-manager.io/v1
+
+  - it: uses generated secret name
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+    asserts:
+      - equal:
+          path: spec.secretName
+          value: RELEASE-NAME-ssl-exporter-tls
+
+  - it: sets issuerRef from values
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: my-issuer
+            kind: Issuer
+    asserts:
+      - equal:
+          path: spec.issuerRef.name
+          value: my-issuer
+      - equal:
+          path: spec.issuerRef.kind
+          value: Issuer
+
+  - it: defaults dnsNames to service FQDN
+    release:
+      name: my-release
+      namespace: monitoring
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+    asserts:
+      - contains:
+          path: spec.dnsNames
+          content: my-release-ssl-exporter.monitoring.svc
+
+  - it: uses custom dnsNames when provided
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+          dnsNames:
+            - ssl-exporter.example.com
+            - ssl-exporter.monitoring.svc
+    asserts:
+      - lengthEqual:
+          path: spec.dnsNames
+          count: 2
+      - contains:
+          path: spec.dnsNames
+          content: ssl-exporter.example.com
+
+  - it: sets duration and renewBefore
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+          duration: 2160h
+          renewBefore: 360h
+    asserts:
+      - equal:
+          path: spec.duration
+          value: 2160h
+      - equal:
+          path: spec.renewBefore
+          value: 360h

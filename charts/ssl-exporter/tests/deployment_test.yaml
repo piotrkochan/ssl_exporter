@@ -1,0 +1,176 @@
+suite: deployment
+templates:
+  - deployment.yaml
+  - configmap.yaml
+  - secret-web-config.yaml
+tests:
+  - it: renders with defaults
+    template: deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --web.probe-path=/probe
+            - --web.listen-address=:9219
+            - --config.file=/config/config.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /config
+            readOnly: true
+      - isNull:
+          path: spec.template.spec.containers[0].env
+
+  - it: does not have web-config volume when webConfig disabled
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --web.config.file=/etc/web-config/web-config.yaml
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: web-config
+          any: true
+
+  - it: adds web-config arg and volume when webConfig enabled
+    template: deployment.yaml
+    set:
+      webConfig:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --web.config.file=/etc/web-config/web-config.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: web-config
+            mountPath: /etc/web-config
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: web-config
+            secret:
+              secretName: RELEASE-NAME-ssl-exporter-web-config
+
+  - it: uses existing web-config secret name
+    template: deployment.yaml
+    set:
+      webConfig:
+        enabled: true
+        existingSecret: my-web-config
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: web-config
+            secret:
+              secretName: my-web-config
+
+  - it: adds tls volume when tls enabled with existingSecret
+    template: deployment.yaml
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-tls
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tls-certs
+            mountPath: /etc/tls
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tls-certs
+            secret:
+              secretName: my-tls
+
+  - it: uses generated tls secret name when no existingSecret
+    template: deployment.yaml
+    set:
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tls-certs
+            secret:
+              secretName: RELEASE-NAME-ssl-exporter-tls
+
+  - it: respects custom tls mountPath
+    template: deployment.yaml
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-tls
+        mountPath: /custom/tls
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tls-certs
+            mountPath: /custom/tls
+            readOnly: true
+
+  - it: does not have tls volume when tls disabled
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: tls-certs
+          any: true
+
+  - it: renders all volumes together
+    template: deployment.yaml
+    set:
+      webConfig:
+        enabled: true
+      tls:
+        enabled: true
+        existingSecret: my-tls
+      extraVolumes:
+        - name: extra
+          emptyDir: {}
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 4
+      - lengthEqual:
+          path: spec.template.spec.containers[0].volumeMounts
+          count: 3
+
+  - it: renders extra args
+    template: deployment.yaml
+    set:
+      extraArgs:
+        - --log.level=debug
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --log.level=debug
+
+  - it: renders extra env
+    template: deployment.yaml
+    set:
+      extraEnv:
+        - name: HTTPS_PROXY
+          value: "http://proxy:8080"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: "http://proxy:8080"
