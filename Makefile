@@ -61,9 +61,22 @@ clean:
 	@rm -Rf $(BIN_DIR)
 	@rm -Rf $(BIN_NAME)
 
+$(GOPATH)/bin/helm-docs:
+	@go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+
+helm-docs: $(GOPATH)/bin/helm-docs
+	@echo ">> generating helm chart docs"
+	@$(GOPATH)/bin/helm-docs --chart-search-root charts
+
+helm-test:
+	@echo ">> linting helm chart"
+	@helm lint charts/ssl-exporter/
+	@echo ">> running helm unit tests"
+	@helm unittest charts/ssl-exporter/
+
 e2e:
 	@echo ">> running e2e tests"
 	@chmod +x e2e/run.sh
 	@e2e/run.sh
 
-.PHONY: all style test format vet build docker snapshot release clean e2e
+.PHONY: all style test format vet build docker snapshot release clean e2e helm-docs helm-test

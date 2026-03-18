@@ -1,0 +1,27 @@
+suite: configmap
+templates:
+  - configmap.yaml
+tests:
+  - it: is created when config enabled
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+
+  - it: is not created when existingConfigMap is set
+    set:
+      config:
+        enabled: true
+        existingConfigMap: my-config
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is not created when config disabled
+    set:
+      config:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
