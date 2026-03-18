@@ -1,34 +1,43 @@
 # Default values for ssl-exporter.
 
+# -- Number of replicas
 replicaCount: 1
 
 image:
+  # -- Image repository
   repository: piotrkochan/ssl-exporter
+  # -- Image pull policy
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
+  # -- Image tag (defaults to chart appVersion)
   tag: ""
 
+# -- Image pull secrets
 imagePullSecrets: []
+# -- Override the chart name
 nameOverride: ""
+# -- Override the full release name
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
+  # -- Create a service account
   create: true
-  # Automatically mount the service account token
+  # -- Automount the service account token
   automountServiceAccountToken: false
-  # Annotations to add to the service account
+  # -- Annotations for the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # -- Service account name (generated if not set and create is true)
   name: ""
 
+# -- Additional pod annotations
 podAnnotations: {}
+# -- Additional pod labels
 podLabels: {}
 
+# -- Pod security context
 podSecurityContext:
   fsGroup: 1000
 
+# -- Container security context
 securityContext:
   capabilities:
     drop:
@@ -42,18 +51,21 @@ securityContext:
     type: RuntimeDefault
 
 service:
+  # -- Service type
   type: ClusterIP
+  # -- Service port
   port: 9219
 
-# Extra command-line arguments for ssl_exporter
+# -- Extra command-line arguments for ssl_exporter
 extraArgs: []
 # - --log.level=debug
 
-# Extra environment variables
+# -- Extra environment variables
 extraEnv: []
 # - name: HTTPS_PROXY
 #   value: "http://proxy:8080"
 
+# -- Resource requests and limits
 resources: {}
   # limits:
   #   cpu: 100m
@@ -62,6 +74,7 @@ resources: {}
   #   cpu: 50m
   #   memory: 64Mi
 
+# -- Liveness probe configuration
 livenessProbe:
   httpGet:
     path: /
@@ -71,6 +84,7 @@ livenessProbe:
   timeoutSeconds: 5
   failureThreshold: 3
 
+# -- Readiness probe configuration
 readinessProbe:
   httpGet:
     path: /
@@ -80,16 +94,21 @@ readinessProbe:
   timeoutSeconds: 5
   failureThreshold: 3
 
+# -- Node selector
 nodeSelector: {}
 
+# -- Tolerations
 tolerations: []
 
+# -- Affinity rules
 affinity: {}
 
+# -- Extra volume mounts for the container
 extraVolumeMounts: []
 # - name: certs
 #   mountPath: /etc/ssl/certs
 
+# -- Extra volumes for the pod
 extraVolumes: []
 # - name: certs
 #   secret:
@@ -97,58 +116,66 @@ extraVolumes: []
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
+  # -- Enable ServiceMonitor
   enabled: false
+  # -- ServiceMonitor namespace (defaults to release namespace)
   # namespace: monitoring
+  # -- Scrape interval
   interval: 30s
+  # -- Scrape timeout
   scrapeTimeout: 10s
-  # Additional labels for ServiceMonitor selection
+  # -- Additional labels for ServiceMonitor selection
   labels: {}
-  # Metric relabeling
+  # -- Metric relabeling rules
   metricRelabelings: []
-  # Target relabeling
+  # -- Target relabeling rules
   relabelings: []
 
-# Web configuration for TLS and basic auth (--web.config.file)
+# Web configuration for TLS and basic auth (--web.config.file).
 # See: https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
 webConfig:
+  # -- Enable web config (mounts a Secret with web-config.yaml and passes --web.config.file)
   enabled: false
-  # Existing Secret containing web-config.yaml key
-  # If set, the chart will not create a Secret
+  # -- Use an existing Secret containing a `web-config.yaml` key (chart will not create one)
   existingSecret: ""
-  # Inline web-config.yaml content (when existingSecret is empty)
-  # Passwords in basic_auth_users must be bcrypt-hashed
+  # -- Inline web-config.yaml content. When `tls.enabled`, `tls_server_config` is auto-injected. Passwords in `basic_auth_users` must be bcrypt-hashed.
   data: {}
     # basic_auth_users:
     #   admin: "$2y$10$..."
 
-# TLS configuration for the exporter's own endpoints
+# TLS configuration for the exporter's own endpoints.
 tls:
+  # -- Enable TLS (mounts a TLS Secret into the container)
   enabled: false
-  # Existing kubernetes.io/tls Secret name
-  # If set, certManager section is ignored
+  # -- Existing `kubernetes.io/tls` Secret name. If set, certManager section is ignored.
   existingSecret: ""
-  # Mount path for TLS cert/key inside the container
+  # -- Mount path for TLS cert/key inside the container
   mountPath: /etc/tls
   # cert-manager Certificate resource (optional)
   certManager:
+    # -- Create a cert-manager Certificate resource to provision the TLS Secret
     enabled: false
     # Issuer reference — must exist in the cluster
     issuerRef:
+      # -- Issuer name
       name: ""
+      # -- Issuer kind (Issuer or ClusterIssuer)
       kind: ClusterIssuer
-    # Certificate duration (default 1 year)
+    # -- Certificate duration
     duration: 8760h
-    # Renew before expiry
+    # -- Renew before expiry
     renewBefore: 720h
-    # DNS names for the certificate
+    # -- DNS names for the certificate (defaults to service FQDN)
     dnsNames: []
     #  - ssl-exporter.monitoring.svc
 
+# Exporter module configuration.
 config:
+  # -- Enable config file (creates ConfigMap and passes --config.file)
   enabled: true
-  # Use an existing ConfigMap instead of creating one
-  # If set, config.data is ignored
+  # -- Use an existing ConfigMap (config.data is ignored when set)
   existingConfigMap: ""
+  # -- Exporter configuration in YAML
   data: |
     modules:
       https:

@@ -27,6 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.24"
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
@@ -38,3 +43,11 @@ jobs:
 
       - name: Helm unit tests
         run: helm unittest charts/ssl-exporter/
+
+      - name: Install helm-docs
+        run: go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+
+      - name: Verify chart docs are up-to-date
+        run: |
+          helm-docs --chart-search-root charts
+          git diff --exit-code charts/ssl-exporter/README.md

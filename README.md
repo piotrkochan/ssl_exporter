@@ -94,10 +94,78 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_verified_cert_not_after    | The date after which a certificate in the verified chain expires. Expressed as a Unix Epoch Time.                | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
 | ssl_verified_cert_not_before   | The date before which a certificate in the verified chain is not valid. Expressed as a Unix Epoch Time.          | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
 
-## Helm install
+## Helm Chart
 
-    git clone https://github.com/ribbybibby/ssl_exporter
-    helm install ssl-exporter ssl_exporter/charts/ssl-exporter
+### Installation
+
+```bash
+helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
+helm repo update
+helm install ssl-exporter ssl-exporter/ssl-exporter
+```
+
+### Configuration
+
+All configuration options are documented in [`charts/ssl-exporter/values.yaml`](charts/ssl-exporter/values.yaml).
+
+Key features:
+- **Exporter module config** (`config`) — configure probers (https, tcp, file, kubernetes)
+- **ServiceMonitor** (`serviceMonitor`) — Prometheus Operator integration
+- **Web config** (`webConfig`) — TLS and basic auth for the exporter's own endpoints via `--web.config.file`
+- **TLS** (`tls`) — mount TLS certificates from an existing Secret or provision them with cert-manager
+
+#### Examples
+
+Basic install with ServiceMonitor:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+```
+
+Enable basic auth:
+
+```yaml
+webConfig:
+  enabled: true
+  data:
+    basic_auth_users:
+      admin: "$2y$10$hashedpassword"
+```
+
+Basic auth with an existing Secret (to avoid passwords in Helm values):
+
+```yaml
+webConfig:
+  enabled: true
+  existingSecret: my-web-config
+```
+
+TLS with an existing Secret:
+
+```yaml
+tls:
+  enabled: true
+  existingSecret: my-tls-secret
+webConfig:
+  enabled: true  # auto-generates web-config.yaml with tls_server_config
+```
+
+TLS with cert-manager:
+
+```yaml
+tls:
+  enabled: true
+  certManager:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+webConfig:
+  enabled: true
+```
 
 ## Configuration
 

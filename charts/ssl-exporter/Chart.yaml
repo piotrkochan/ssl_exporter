@@ -2,7 +2,7 @@ apiVersion: v2
 name: ssl-exporter
 description: SSL Certificate Exporter for Prometheus
 type: application
-version: 0.2.0
+version: 0.1.0
 appVersion: "2.5.1"
 home: https://github.com/piotrkochan/ssl_exporter
 sources:
