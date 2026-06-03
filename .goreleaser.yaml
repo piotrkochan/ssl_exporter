@@ -25,6 +25,10 @@ builds:
 changelog:
   use: git
   sort: asc
+  filters:
+    exclude:
+      - '(?i)\[skip changelog\]'
+      - '^Merge '
   groups:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'

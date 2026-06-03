@@ -392,7 +392,7 @@ modules: [<module>]
 ### \<module\>
 
 ```
-# The type of probe (https, tcp, file, kubernetes, kubeconfig)
+# The type of probe (https, tcp, file, http_file, keystore, kubernetes, kubeconfig)
 prober: <prober_string>
 
 # The probe target. If set, then the 'target' query parameter is ignored.
