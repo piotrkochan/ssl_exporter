@@ -44,6 +44,13 @@ modules:
   file_ca_certificates:
     prober: file
     target: /etc/ssl/certs/ca-certificates.crt
+  keystore:
+    prober: keystore
+    keystore:
+      # Reads JKS and PKCS12 keystores (autodetected). Provide the password
+      # inline or, preferably, via password_file.
+      password: changeit
+      # password_file: /etc/ssl_exporter/keystore_password
   http_file:
     prober: http_file
   http_file_proxy:

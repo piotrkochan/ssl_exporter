@@ -281,6 +281,62 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 	return nil
 }
 
+func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prometheus.Registry, password string) error {
+	var (
+		totalCerts       []*x509.Certificate
+		keystoreNotAfter = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_after"),
+				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
+			},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+		keystoreNotBefore = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_before"),
+				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
+			},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+	)
+	registry.MustRegister(keystoreNotAfter, keystoreNotBefore)
+
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("Error reading file %s: %s", f, err))
+			continue
+		}
+		certs, err := readKeyStore(data, password)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("Error loading keystore file %s: %s", f, err))
+			continue
+		}
+		// A single keystore can hold the same certificate under several aliases
+		// (or as both a trusted entry and part of a key entry's chain), which
+		// would otherwise collide on identical metric labels.
+		certs = uniq(certs)
+		totalCerts = append(totalCerts, certs...)
+		for _, cert := range certs {
+			labels := append([]string{f}, labelValues(cert)...)
+
+			if !cert.NotAfter.IsZero() {
+				keystoreNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
+			}
+
+			if !cert.NotBefore.IsZero() {
+				keystoreNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
+			}
+		}
+	}
+
+	if len(totalCerts) == 0 {
+		return fmt.Errorf("No certificates found")
+	}
+
+	return nil
+}
+
 func collectKubernetesSecretMetrics(secrets []v1.Secret, registry *prometheus.Registry) error {
 	var (
 		totalCerts         []*x509.Certificate

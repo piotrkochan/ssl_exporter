@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	pconfig "github.com/prometheus/common/config"
@@ -31,6 +32,9 @@ var (
 			},
 			"http_file": {
 				Prober: "http_file",
+			},
+			"keystore": {
+				Prober: "keystore",
 			},
 			"kubernetes": {
 				Prober: "kubernetes",
@@ -73,6 +77,7 @@ type Module struct {
 	Target     string          `yaml:"target,omitempty"`
 	Timeout    time.Duration   `yaml:"timeout,omitempty"`
 	TLSConfig  TLSConfig       `yaml:"tls_config,omitempty"`
+	Keystore   KeystoreProbe   `yaml:"keystore,omitempty"`
 	HTTPS      HTTPSProbe      `yaml:"https,omitempty"`
 	TCP        TCPProbe        `yaml:"tcp,omitempty"`
 	Kubernetes KubernetesProbe `yaml:"kubernetes,omitempty"`
@@ -134,6 +139,25 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 // TCPProbe configures a tcp probe
 type TCPProbe struct {
 	StartTLS string `yaml:"starttls,omitempty"`
+}
+
+// KeystoreProbe configures a Java KeyStore (JKS) or PKCS12 probe
+type KeystoreProbe struct {
+	Password     pconfig.Secret `yaml:"password,omitempty"`
+	PasswordFile string         `yaml:"password_file,omitempty"`
+}
+
+// GetPassword returns the keystore password, reading it from PasswordFile when
+// configured and otherwise falling back to the inline Password.
+func (k KeystoreProbe) GetPassword() (string, error) {
+	if k.PasswordFile != "" {
+		data, err := os.ReadFile(k.PasswordFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read keystore password_file %q: %w", k.PasswordFile, err)
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	return string(k.Password), nil
 }
 
 // HTTPSProbe configures a https probe

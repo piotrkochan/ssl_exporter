@@ -4,6 +4,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/bmatcuk/doublestar/v2 v2.0.4
 	github.com/go-kit/log v0.2.1
+	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.68.1
@@ -13,6 +14,7 @@ require (
 	k8s.io/api v0.36.1
 	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v0.36.1
+	software.sslmate.com/src/go-pkcs12 v0.7.1
 )
 
 require (
