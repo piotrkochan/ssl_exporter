@@ -289,14 +289,14 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_after"),
 				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
 			},
-			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
 		)
 		keystoreNotBefore = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_before"),
 				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
 			},
-			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
 		)
 	)
 	registry.MustRegister(keystoreNotAfter, keystoreNotBefore)
@@ -318,7 +318,7 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 		certs = uniq(certs)
 		totalCerts = append(totalCerts, certs...)
 		for _, cert := range certs {
-			labels := append([]string{hostname(), f}, labelValues(cert)...)
+			labels := append([]string{f}, labelValues(cert)...)
 
 			if !cert.NotAfter.IsZero() {
 				keystoreNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
@@ -531,15 +531,6 @@ func ipAddresses(cert *x509.Certificate) string {
 func organizationalUnits(cert *x509.Certificate) string {
 	if len(cert.Subject.OrganizationalUnit) > 0 {
 		return "," + strings.Join(cert.Subject.OrganizationalUnit, ",") + ","
-	}
-
-	return ""
-}
-
-func hostname() string {
-	hostname, err := os.Hostname()
-	if err == nil {
-		return hostname
 	}
 
 	return ""

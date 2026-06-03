@@ -255,7 +255,6 @@ func checkKeystoreMetrics(cert *x509.Certificate, certFile string, registry *pro
 		{
 			Name: "ssl_keystore_cert_not_after",
 			LabelValues: map[string]string{
-				"hostname":  hostname(),
 				"file":      certFile,
 				"serial_no": cert.SerialNumber.String(),
 				"issuer_cn": cert.Issuer.CommonName,
@@ -270,7 +269,6 @@ func checkKeystoreMetrics(cert *x509.Certificate, certFile string, registry *pro
 		{
 			Name: "ssl_keystore_cert_not_before",
 			LabelValues: map[string]string{
-				"hostname":  hostname(),
 				"file":      certFile,
 				"serial_no": cert.SerialNumber.String(),
 				"issuer_cn": cert.Issuer.CommonName,
