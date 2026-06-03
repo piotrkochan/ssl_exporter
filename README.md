@@ -484,12 +484,27 @@ target: <string>
 [ password_file: <filename> ]
 ```
 
+## Examples
+
+The [`examples/`](examples) directory contains ready-to-use files:
+
+- [`ssl_exporter.yaml`](examples/ssl_exporter.yaml) - exporter module configuration covering every prober.
+- [`example.prometheus.yml`](examples/example.prometheus.yml) - Prometheus scrape configuration.
+- [`ssl_exporter.rules.yml`](examples/ssl_exporter.rules.yml) - Prometheus alerting rules (probe failures, certificate expiry and revocation, deprecated TLS).
+
 ## Example Queries
 
 Certificates that expire within 7 days:
 
 ```
 ssl_cert_not_after - time() < 86400 * 7
+```
+
+Certificates from any prober (tcp, https, file, keystore, kubernetes,
+kubeconfig) that expire within 7 days:
+
+```
+{__name__=~"ssl_.*cert_not_after"} - time() < 86400 * 7
 ```
 
 Wildcard certificates that are expiring:
