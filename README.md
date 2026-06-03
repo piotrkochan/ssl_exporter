@@ -23,7 +23,7 @@ metric indicates if the probe has been successful.
 
 ### Docker
 
-    docker run -p 9219:9219 ghcr.io/piotrkochan/ssl-exporter:latest <flags>
+    docker run -p 9219:9219 ghcr.io/piotrkochan/ssl_exporter:latest <flags>
 
 ### Release process
 

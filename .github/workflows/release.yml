@@ -43,4 +43,4 @@ jobs:
           APP_BRANCH: ${{ github.ref_name }}
           APP_USER: github-actions
           APP_HOST: github.com
-          APP_DOCKER_IMAGE_NAME: ghcr.io/piotrkochan/ssl-exporter
+          APP_DOCKER_IMAGE_NAME: ghcr.io/piotrkochan/ssl_exporter
