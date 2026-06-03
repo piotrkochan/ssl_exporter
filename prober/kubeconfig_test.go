@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +41,7 @@ func TestProbeKubeconfig(t *testing.T) {
 }
 
 func TestParseKubeConfigRelative(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "kubeconfig")
+	tmpFile, err := os.CreateTemp("", "kubeconfig")
 	if err != nil {
 		t.Fatalf("Unable to create Tempfile: %s", err.Error())
 	}
@@ -96,7 +95,7 @@ func createTestKubeconfig(dir, filename string) (*x509.Certificate, string, erro
 	if err != nil {
 		return nil, "", err
 	}
-	tmpFile, err := ioutil.TempFile(dir, filename)
+	tmpFile, err := os.CreateTemp(dir, filename)
 	if err != nil {
 		return nil, tmpFile.Name(), err
 	}
