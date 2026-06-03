@@ -141,6 +141,103 @@ check_probe_expired() {
     return 0
 }
 
+check_probe_keystore() {
+    local target=$1
+    local result
+    local errors=""
+
+    result=$(probe "$target" "keystore")
+
+    if ! echo "$result" | grep -q 'ssl_probe_success 1'; then
+        errors="${errors}ssl_probe_success != 1; "
+    fi
+
+    local not_after
+    not_after=$(echo "$result" | grep 'ssl_keystore_cert_not_after{' | head -1 | awk '{print $NF}')
+    if [ -z "$not_after" ]; then
+        errors="${errors}ssl_keystore_cert_not_after missing; "
+    else
+        local now
+        now=$(date +%s)
+        local not_after_int
+        not_after_int=$(printf "%.0f" "$not_after")
+        if [ "$not_after_int" -le "$now" ]; then
+            errors="${errors}ssl_keystore_cert_not_after is in the past; "
+        fi
+    fi
+
+    if ! echo "$result" | grep -q 'ssl_keystore_cert_not_before{'; then
+        errors="${errors}ssl_keystore_cert_not_before missing; "
+    fi
+
+    if [ -n "$errors" ]; then
+        echo "Errors: $errors"
+        echo "Full output:"
+        echo "$result"
+        return 1
+    fi
+    return 0
+}
+
+check_probe_keystore_expired() {
+    local target=$1
+    local result
+    local errors=""
+
+    result=$(probe "$target" "keystore")
+
+    # Reading an expired keystore still succeeds; only the expiry is in the past.
+    if ! echo "$result" | grep -q 'ssl_probe_success 1'; then
+        errors="${errors}ssl_probe_success != 1; "
+    fi
+
+    local not_after
+    not_after=$(echo "$result" | grep 'ssl_keystore_cert_not_after{' | head -1 | awk '{print $NF}')
+    if [ -z "$not_after" ]; then
+        errors="${errors}ssl_keystore_cert_not_after missing; "
+    else
+        local now
+        now=$(date +%s)
+        local not_after_int
+        not_after_int=$(printf "%.0f" "$not_after")
+        if [ "$not_after_int" -gt "$now" ]; then
+            errors="${errors}ssl_keystore_cert_not_after should be in the past; "
+        fi
+    fi
+
+    if [ -n "$errors" ]; then
+        echo "Errors: $errors"
+        echo "Full output:"
+        echo "$result"
+        return 1
+    fi
+    return 0
+}
+
+check_probe_keystore_mixed() {
+    local target=$1
+    local result
+
+    result=$(probe "$target" "keystore")
+
+    if ! echo "$result" | grep -q 'ssl_probe_success 1'; then
+        echo "Expected ssl_probe_success 1"
+        echo "$result"
+        return 1
+    fi
+
+    # A mixed keystore holds more than one certificate, so it must export more
+    # than one not_after series.
+    local count
+    count=$(echo "$result" | grep -c 'ssl_keystore_cert_not_after{')
+    if [ "$count" -lt 2 ]; then
+        echo "Expected >= 2 ssl_keystore_cert_not_after series, got $count"
+        echo "$result"
+        return 1
+    fi
+    return 0
+}
+
 echo "Building ssl_exporter..."
 cd "$PROJECT_DIR"
 go build -o "$EXPORTER_BIN" .
@@ -177,6 +274,13 @@ with open(f"{certs_dir}/expired.crt", "wb") as f:
     f.write(cert.public_bytes(serialization.Encoding.PEM))
 PYEOF
 
+echo "Generating keystores (JKS + PKCS12)..."
+go run "$PROJECT_DIR/e2e/genkeystores" \
+    -cert "$SCRIPT_DIR/certs/valid.crt" \
+    -key "$SCRIPT_DIR/certs/valid.key" \
+    -expired-cert "$SCRIPT_DIR/certs/expired.crt" \
+    -out "$SCRIPT_DIR/certs"
+
 cat > "$SCRIPT_DIR/config.yml" << 'EOF'
 modules:
   mysql:
@@ -199,6 +303,14 @@ modules:
     prober: tcp
     tls_config:
       insecure_skip_verify: true
+  keystore:
+    prober: keystore
+    keystore:
+      password: changeit
+  keystore_wrongpass:
+    prober: keystore
+    keystore:
+      password: wrongpassword
 EOF
 
 echo "Starting services..."
@@ -286,6 +398,70 @@ if check_probe_expired "https://127.0.0.1:18444" "https"; then
     pass "nginx expired cert"
 else
     echo "FAIL: nginx expired cert probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore JKS (valid): "
+if check_probe_keystore "$SCRIPT_DIR/certs/keystore.jks"; then
+    pass "keystore JKS (valid)"
+else
+    echo "FAIL: keystore JKS probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore PKCS12 truststore (valid): "
+if check_probe_keystore "$SCRIPT_DIR/certs/truststore.p12"; then
+    pass "keystore PKCS12 truststore (valid)"
+else
+    echo "FAIL: keystore PKCS12 truststore probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore PKCS12 with private key (valid): "
+if check_probe_keystore "$SCRIPT_DIR/certs/keystore.p12"; then
+    pass "keystore PKCS12 with private key (valid)"
+else
+    echo "FAIL: keystore PKCS12 with private key probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore JKS expired: "
+if check_probe_keystore_expired "$SCRIPT_DIR/certs/expired.jks"; then
+    pass "keystore JKS expired"
+else
+    echo "FAIL: keystore JKS expired probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore JKS mixed (valid + expired): "
+if check_probe_keystore_mixed "$SCRIPT_DIR/certs/mixed.jks"; then
+    pass "keystore JKS mixed"
+else
+    echo "FAIL: keystore JKS mixed probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore PKCS12 mixed (valid + expired): "
+if check_probe_keystore_mixed "$SCRIPT_DIR/certs/mixed.p12"; then
+    pass "keystore PKCS12 mixed"
+else
+    echo "FAIL: keystore PKCS12 mixed probe failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore wrong password (expect fail): "
+if check_probe_fails "$SCRIPT_DIR/certs/keystore.jks" "keystore_wrongpass"; then
+    pass "keystore wrong password correctly failed"
+else
+    echo "FAIL: keystore wrong password should have failed"
+    FAILED=1
+fi
+
+echo -n "Test keystore unrecognized format (expect fail): "
+if check_probe_fails "$SCRIPT_DIR/certs/valid.crt" "keystore"; then
+    pass "keystore unrecognized format correctly failed"
+else
+    echo "FAIL: keystore unrecognized format should have failed"
     FAILED=1
 fi
 

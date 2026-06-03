@@ -15,11 +15,8 @@ var (
 		"http":       ProbeHTTPS,
 		"tcp":        ProbeTCP,
 		"file":       ProbeFile,
-<<<<<<<
 		"http_file":  ProbeHTTPFile,
-=======
-		"jks":        ProbeJKS,
->>>>>>>
+		"keystore":   ProbeKeystore,
 		"kubernetes": ProbeKubernetes,
 		"kubeconfig": ProbeKubeconfig,
 	}

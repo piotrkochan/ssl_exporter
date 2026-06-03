@@ -5,23 +5,13 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-<<<<<<<
 	"log/slog"
-=======
-	"io/ioutil"
->>>>>>>
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-<<<<<<<
-=======
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"github.com/pavlo-v-chernykh/keystore-go/v4"
->>>>>>>
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
 	v1 "k8s.io/api/core/v1"
@@ -291,50 +281,47 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 	return nil
 }
 
-func collectJKSMetrics(logger log.Logger, files []string, registry *prometheus.Registry, password string) error {
+func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prometheus.Registry, password string) error {
 	var (
-		totalCerts  []*x509.Certificate
-		jksNotAfter = prometheus.NewGaugeVec(
+		totalCerts       []*x509.Certificate
+		keystoreNotAfter = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: prometheus.BuildFQName(namespace, "", "jks_cert_not_after"),
-				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a java keystore file",
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_after"),
+				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
 			},
 			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
 		)
-		jksNotBefore = prometheus.NewGaugeVec(
+		keystoreNotBefore = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: prometheus.BuildFQName(namespace, "", "jks_cert_not_before"),
-				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a java keystore file",
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_before"),
+				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
 			},
 			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
 		)
 	)
-	registry.MustRegister(jksNotAfter, jksNotBefore)
+	registry.MustRegister(keystoreNotAfter, keystoreNotBefore)
 
 	for _, f := range files {
-		r, err := os.Open(f)
+		data, err := os.ReadFile(f)
 		if err != nil {
-			level.Debug(logger).Log("msg", fmt.Sprintf("Error reading file %s: %s", f, err))
+			logger.Debug(fmt.Sprintf("Error reading file %s: %s", f, err))
 			continue
 		}
-		ks := keystore.New()
-		if err := ks.Load(r, []byte(password)); err != nil {
-			level.Debug(logger).Log("msg", fmt.Sprintf("Error loading java keystore file %s: %s", f, err))
-		}
-		certs, err := readJavaKeyStore(ks)
+		certs, err := readKeyStore(data, password)
 		if err != nil {
-			return err
+			logger.Debug(fmt.Sprintf("Error loading keystore file %s: %s", f, err))
+			continue
 		}
 		totalCerts = append(totalCerts, certs...)
 		for _, cert := range certs {
 			labels := append([]string{hostname(), f}, labelValues(cert)...)
 
 			if !cert.NotAfter.IsZero() {
-				jksNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
+				keystoreNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
 			}
 
 			if !cert.NotBefore.IsZero() {
-				jksNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
+				keystoreNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
 			}
 		}
 	}
