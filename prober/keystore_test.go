@@ -16,6 +16,52 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// TestProbeKeystoreDuplicateAliases verifies that the same certificate stored
+// under multiple aliases is deduplicated into a single time series.
+func TestProbeKeystoreDuplicateAliases(t *testing.T) {
+	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour * 1))
+	block, _ := pem.Decode(certPEM)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFile, err := os.CreateTemp("", "dup*.keystore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Same certificate under two aliases (cert-0, cert-1).
+	jks := test.GenerateTestJKSWithCertificate([]*x509.Certificate{cert, cert})
+	if err := jks.Store(tmpFile, []byte("changeit")); err != nil {
+		t.Fatal(err)
+	}
+	tmpFile.Close()
+
+	module := config.Module{Keystore: config.KeystoreProbe{Password: "changeit"}}
+	registry := prometheus.NewRegistry()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := ProbeKeystore(ctx, newTestLogger(), tmpFile.Name(), module, registry); err != nil {
+		t.Fatalf("error: %s", err)
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() == "ssl_keystore_cert_not_after" {
+			if got := len(mf.GetMetric()); got != 1 {
+				t.Fatalf("expected 1 ssl_keystore_cert_not_after series, got %d", got)
+			}
+		}
+	}
+}
+
 // TestReadKeyStoreDetection covers the format-detection branches of readKeyStore,
 // including the error paths for unrecognized and undersized inputs.
 func TestReadKeyStoreDetection(t *testing.T) {

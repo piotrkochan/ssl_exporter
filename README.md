@@ -255,8 +255,9 @@ to capture multiple files at once:
 curl "localhost:9219/probe?module=keystore&target=/usr/java/jdkXXX/jre/lib/security/*.keystore"
 ```
 
-The keystore password is configured per module, either inline or - preferably -
-read from a file:
+A password is **required** (there is no default); for the standard `cacerts`
+truststore it is `changeit`. Configure it per module, inline or preferably
+from a file. The examples above assume such a module:
 
 ```yml
 modules:

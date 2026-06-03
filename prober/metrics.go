@@ -312,6 +312,10 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 			logger.Debug(fmt.Sprintf("Error loading keystore file %s: %s", f, err))
 			continue
 		}
+		// A single keystore can hold the same certificate under several aliases
+		// (or as both a trusted entry and part of a key entry's chain), which
+		// would otherwise collide on identical metric labels.
+		certs = uniq(certs)
 		totalCerts = append(totalCerts, certs...)
 		for _, cert := range certs {
 			labels := append([]string{hostname(), f}, labelValues(cert)...)
