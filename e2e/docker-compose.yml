@@ -53,6 +53,22 @@ services:
       timeout: 5s
       retries: 10
 
+  postfix:
+    image: boky/postfix:v5.1.0
+    environment:
+      ALLOWED_SENDER_DOMAINS: example.com
+      TLS_CERT: /certs/valid.crt
+      TLS_KEY: /certs/valid.key
+    ports:
+      - "11587:587"
+    volumes:
+      - ./certs:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -w2 localhost 587 </dev/null | grep -q '^220'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   nginx_ssl:
     image: nginx:1.27
     ports:

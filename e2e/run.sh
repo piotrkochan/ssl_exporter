@@ -295,6 +295,12 @@ modules:
       starttls: postgres
     tls_config:
       insecure_skip_verify: true
+  smtp:
+    prober: tcp
+    tcp:
+      starttls: smtp
+    tls_config:
+      insecure_skip_verify: true
   https:
     prober: https
     tls_config:
@@ -324,6 +330,7 @@ sleep 2
 wait_for_service mysql || fail "MySQL did not become ready"
 wait_for_service mariadb || fail "MariaDB did not become ready"
 wait_for_service postgres || fail "PostgreSQL did not become ready"
+wait_for_service postfix || fail "Postfix did not become ready"
 wait_for_service proxysql || fail "ProxySQL did not become ready"
 wait_for_service nginx_ssl || fail "nginx_ssl did not become ready"
 wait_for_service nginx_nossl || fail "nginx_nossl did not become ready"
@@ -358,6 +365,14 @@ if check_probe "127.0.0.1:15432" "postgres"; then
     pass "PostgreSQL 16 STARTTLS"
 else
     echo "FAIL: PostgreSQL 16 STARTTLS probe failed"
+    FAILED=1
+fi
+
+echo -n "Test Postfix SMTP STARTTLS: "
+if check_probe "127.0.0.1:11587" "smtp"; then
+    pass "Postfix SMTP STARTTLS"
+else
+    echo "FAIL: Postfix SMTP STARTTLS probe failed"
     FAILED=1
 fi
 
