@@ -238,6 +238,21 @@ check_probe_keystore_mixed() {
     return 0
 }
 
+check_probe_servername() {
+    local target=$1
+    local module=$2
+    local server_name=$3
+    local result
+
+    result=$(curl -sf "http://localhost:9219/probe?target=$target&module=$module&server_name=$server_name" 2>/dev/null)
+    if echo "$result" | grep -q 'ssl_probe_success 1'; then
+        return 0
+    fi
+    echo "Expected ssl_probe_success 1 with server_name=$server_name"
+    echo "$result"
+    return 1
+}
+
 echo "Building ssl_exporter..."
 cd "$PROJECT_DIR"
 go build -o "$EXPORTER_BIN" .
@@ -245,7 +260,8 @@ go build -o "$EXPORTER_BIN" .
 echo "Generating certificates..."
 mkdir -p "$SCRIPT_DIR/certs"
 openssl req -x509 -newkey rsa:2048 -keyout "$SCRIPT_DIR/certs/valid.key" -out "$SCRIPT_DIR/certs/valid.crt" \
-    -days 365 -nodes -subj "/CN=localhost" 2>/dev/null
+    -days 365 -nodes -subj "/CN=localhost" \
+    -addext "subjectAltName=DNS:example.com,DNS:localhost" 2>/dev/null
 
 CERTS_DIR="$SCRIPT_DIR/certs" python3 << 'PYEOF'
 from cryptography import x509
@@ -311,6 +327,14 @@ modules:
     prober: keystore
     keystore:
       password: wrongpassword
+EOF
+
+# Appended separately so $SCRIPT_DIR expands into the ca_file path.
+cat >> "$SCRIPT_DIR/config.yml" <<EOF
+  https_servername:
+    prober: https
+    tls_config:
+      ca_file: $SCRIPT_DIR/certs/valid.crt
 EOF
 
 echo "Starting services..."
@@ -462,6 +486,22 @@ if check_probe_fails "$SCRIPT_DIR/certs/valid.crt" "keystore"; then
     pass "keystore unrecognized format correctly failed"
 else
     echo "FAIL: keystore unrecognized format should have failed"
+    FAILED=1
+fi
+
+echo -n "Test server_name mismatch by IP without param (expect fail): "
+if check_probe_fails "https://127.0.0.1:18443" "https_servername"; then
+    pass "server_name mismatch correctly failed"
+else
+    echo "FAIL: probe by IP without server_name should have failed verification"
+    FAILED=1
+fi
+
+echo -n "Test server_name override (expect success): "
+if check_probe_servername "https://127.0.0.1:18443" "https_servername" "example.com"; then
+    pass "server_name override"
+else
+    echo "FAIL: server_name override probe failed"
     FAILED=1
 fi
 

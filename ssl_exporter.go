@@ -75,6 +75,20 @@ func probeHandler(logger *slog.Logger, w http.ResponseWriter, r *http.Request, c
 		}
 	}
 
+	// The server_name query parameter sets the TLS ServerName (SNI) for a single
+	// probe, which is useful when the target is an IP address. To keep explicit
+	// module configuration authoritative, it is rejected when the module already
+	// defines a server_name.
+	if serverName := r.URL.Query().Get("server_name"); serverName != "" {
+		if module.TLSConfig.ServerName != "" {
+			http.Error(w, "server_name is set in both the module configuration and the query parameter", http.StatusBadRequest)
+			return
+		}
+		logger.Debug(fmt.Sprintf("Using %s as server name", serverName))
+		logger = logger.With("server_name", serverName)
+		module.TLSConfig.ServerName = serverName
+	}
+
 	probeFunc, ok := prober.Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), http.StatusBadRequest)

@@ -207,6 +207,87 @@ func TestProbeHandlerDefaultTarget(t *testing.T) {
 	}
 }
 
+// TestProbeHandlerServerName tests that the server_name query parameter
+// overrides the module's TLS ServerName (SNI). With certificate validation
+// enabled, a mismatched server_name must fail verification, proving the
+// parameter reaches the TLS handshake.
+func TestProbeHandlerServerName(t *testing.T) {
+	server, _, _, caFile, teardown, err := test.SetupHTTPSServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer teardown()
+
+	server.StartTLS()
+	defer server.Close()
+
+	conf := &config.Config{
+		Modules: map[string]config.Module{
+			"https": config.Module{
+				Prober: "https",
+				TLSConfig: config.TLSConfig{
+					CAFile: caFile,
+				},
+			},
+		},
+	}
+
+	rr, err := probeWithServerName(server.URL, "https", "wrong.example.invalid", conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ok := strings.Contains(rr.Body.String(), "ssl_probe_success 0"); !ok {
+		t.Errorf("expected `ssl_probe_success 0` for mismatched server_name")
+	}
+}
+
+// TestProbeHandlerServerNameConflict tests that supplying server_name both in
+// the module configuration and as a query parameter is rejected with 400.
+func TestProbeHandlerServerNameConflict(t *testing.T) {
+	conf := &config.Config{
+		Modules: map[string]config.Module{
+			"https": config.Module{
+				Prober: "https",
+				TLSConfig: config.TLSConfig{
+					ServerName: "configured.example.com",
+				},
+			},
+		},
+	}
+
+	rr, err := probeWithServerName("127.0.0.1:443", "https", "query.example.com", conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected code %d, got %d", http.StatusBadRequest, rr.Code)
+	}
+}
+
+func probeWithServerName(target, module, serverName string, conf *config.Config) (*httptest.ResponseRecorder, error) {
+	uri := "/probe?target=" + target
+	if module != "" {
+		uri = uri + "&module=" + module
+	}
+	if serverName != "" {
+		uri = uri + "&server_name=" + serverName
+	}
+	req, err := http.NewRequest("GET", uri, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(newTestLogger(), w, r, conf)
+	})
+	handler.ServeHTTP(rr, req)
+
+	return rr, nil
+}
+
 func probe(target, module string, conf *config.Config) (*httptest.ResponseRecorder, error) {
 	uri := "/probe?target=" + target
 	if module != "" {

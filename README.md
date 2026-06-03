@@ -153,6 +153,15 @@ configuration.
 
 The latter takes precedence.
 
+#### server_name
+
+The `server_name` query parameter sets the TLS server name (SNI) for a single
+probe, which is useful when the target is an IP address:
+
+```
+curl "localhost:9219/probe?module=https&target=1.2.3.4:443&server_name=example.com"
+```
+
 ### File
 
 The `file` prober exports `ssl_file_cert_not_after` and
