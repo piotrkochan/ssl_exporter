@@ -32,7 +32,14 @@ var (
 			"http_file": {
 				Prober: "http_file",
 			},
+<<<<<<<
 			"kubernetes": {
+=======
+			"jks": Module{
+				Prober: "jks",
+			},
+			"kubernetes": Module{
+>>>>>>>
 				Prober: "kubernetes",
 			},
 			"kubeconfig": {
@@ -73,6 +80,7 @@ type Module struct {
 	Target     string          `yaml:"target,omitempty"`
 	Timeout    time.Duration   `yaml:"timeout,omitempty"`
 	TLSConfig  TLSConfig       `yaml:"tls_config,omitempty"`
+	JKS        JKSProbe        `yaml:"jks,omitempty"`
 	HTTPS      HTTPSProbe      `yaml:"https,omitempty"`
 	TCP        TCPProbe        `yaml:"tcp,omitempty"`
 	Kubernetes KubernetesProbe `yaml:"kubernetes,omitempty"`
@@ -134,6 +142,11 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 // TCPProbe configures a tcp probe
 type TCPProbe struct {
 	StartTLS string `yaml:"starttls,omitempty"`
+}
+
+// JKSProbe configures a java keystore probe
+type JKSProbe struct {
+	Password string `yaml:"password,omitempty"`
 }
 
 // HTTPSProbe configures a https probe

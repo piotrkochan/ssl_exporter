@@ -5,13 +5,23 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+<<<<<<<
 	"log/slog"
+=======
+	"io/ioutil"
+>>>>>>>
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+<<<<<<<
+=======
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/pavlo-v-chernykh/keystore-go/v4"
+>>>>>>>
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
 	v1 "k8s.io/api/core/v1"
@@ -281,6 +291,61 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 	return nil
 }
 
+func collectJKSMetrics(logger log.Logger, files []string, registry *prometheus.Registry, password string) error {
+	var (
+		totalCerts  []*x509.Certificate
+		jksNotAfter = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "jks_cert_not_after"),
+				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a java keystore file",
+			},
+			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+		jksNotBefore = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "jks_cert_not_before"),
+				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a java keystore file",
+			},
+			[]string{"hostname", "file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+	)
+	registry.MustRegister(jksNotAfter, jksNotBefore)
+
+	for _, f := range files {
+		r, err := os.Open(f)
+		if err != nil {
+			level.Debug(logger).Log("msg", fmt.Sprintf("Error reading file %s: %s", f, err))
+			continue
+		}
+		ks := keystore.New()
+		if err := ks.Load(r, []byte(password)); err != nil {
+			level.Debug(logger).Log("msg", fmt.Sprintf("Error loading java keystore file %s: %s", f, err))
+		}
+		certs, err := readJavaKeyStore(ks)
+		if err != nil {
+			return err
+		}
+		totalCerts = append(totalCerts, certs...)
+		for _, cert := range certs {
+			labels := append([]string{hostname(), f}, labelValues(cert)...)
+
+			if !cert.NotAfter.IsZero() {
+				jksNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
+			}
+
+			if !cert.NotBefore.IsZero() {
+				jksNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
+			}
+		}
+	}
+
+	if len(totalCerts) == 0 {
+		return fmt.Errorf("No certificates found")
+	}
+
+	return nil
+}
+
 func collectKubernetesSecretMetrics(secrets []v1.Secret, registry *prometheus.Registry) error {
 	var (
 		totalCerts         []*x509.Certificate
@@ -475,6 +540,15 @@ func ipAddresses(cert *x509.Certificate) string {
 func organizationalUnits(cert *x509.Certificate) string {
 	if len(cert.Subject.OrganizationalUnit) > 0 {
 		return "," + strings.Join(cert.Subject.OrganizationalUnit, ",") + ","
+	}
+
+	return ""
+}
+
+func hostname() string {
+	hostname, err := os.Hostname()
+	if err == nil {
+		return hostname
 	}
 
 	return ""
