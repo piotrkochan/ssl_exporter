@@ -1,4 +1,4 @@
-FROM alpine:3.21 AS build
+FROM alpine:3.23 AS build
 RUN apk --update add ca-certificates
 RUN echo "ssl:*:100:ssl" > /tmp/group && \
     echo "ssl:*:100:100::/:/ssl_exporter" > /tmp/passwd
