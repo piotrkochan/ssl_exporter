@@ -10,8 +10,8 @@ import (
 
 	"github.com/bmatcuk/doublestar/v2"
 	"github.com/pavlo-v-chernykh/keystore-go/v4"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // magicJKS is the 4-byte magic number at the start of every Java KeyStore file.

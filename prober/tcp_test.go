@@ -165,7 +165,7 @@ func TestProbeTCPExpired(t *testing.T) {
 // TestProbeTCPExpiredInsecure tests that the probe succeeds with an expired server cert
 // when skipping cert verification
 func TestProbeTCPExpiredInsecure(t *testing.T) {
-	server, certPEM, _, caFile, teardown, err := test.SetupTCPServer()
+	server, _, _, caFile, teardown, err := test.SetupTCPServer()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -589,15 +589,15 @@ func TestProbeTCPVerifiedChains(t *testing.T) {
 	serverCert, serverCertPem, serverKey := test.GenerateSignedCertificate(serverCertTmpl, olderRootCert, rootPrivateKey)
 
 	verifiedChains := [][]*x509.Certificate{
-		[]*x509.Certificate{
+		{
 			serverCert,
 			rootCert,
 		},
-		[]*x509.Certificate{
+		{
 			serverCert,
 			olderRootCert,
 		},
-		[]*x509.Certificate{
+		{
 			serverCert,
 			oldestRootCert,
 		},

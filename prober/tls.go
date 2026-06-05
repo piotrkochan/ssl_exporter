@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"net"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // newTLSConfig sets up TLS config and instruments it with a function that

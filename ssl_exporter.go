@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/piotrkochan/ssl_exporter/v2/config"
+	"github.com/piotrkochan/ssl_exporter/v2/prober"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -18,8 +20,6 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"github.com/piotrkochan/ssl_exporter/v2/config"
-	"github.com/piotrkochan/ssl_exporter/v2/prober"
 )
 
 const (

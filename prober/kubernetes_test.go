@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
+	"github.com/prometheus/client_golang/prometheus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -153,7 +153,7 @@ func checkKubernetesMetrics(cert *x509.Certificate, namespace, name, key string,
 		ips = ips + ip.String() + ","
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name: "ssl_kubernetes_cert_not_after",
 			LabelValues: map[string]string{
 				"namespace": namespace,
@@ -169,7 +169,7 @@ func checkKubernetesMetrics(cert *x509.Certificate, namespace, name, key string,
 			},
 			Value: float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_kubernetes_cert_not_before",
 			LabelValues: map[string]string{
 				"namespace": namespace,

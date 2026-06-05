@@ -26,7 +26,7 @@ func TestProbeHandler(t *testing.T) {
 
 	conf := &config.Config{
 		Modules: map[string]config.Module{
-			"https": config.Module{
+			"https": {
 				Prober: "https",
 				TLSConfig: config.TLSConfig{
 					CAFile: caFile,
@@ -94,13 +94,13 @@ func TestProbeHandlerDefaultModule(t *testing.T) {
 	conf := &config.Config{
 		DefaultModule: "https",
 		Modules: map[string]config.Module{
-			"tcp": config.Module{
+			"tcp": {
 				Prober: "tcp",
 				TLSConfig: config.TLSConfig{
 					CAFile: caFile,
 				},
 			},
-			"https": config.Module{
+			"https": {
 				Prober: "https",
 				TLSConfig: config.TLSConfig{
 					CAFile: caFile,
@@ -146,7 +146,7 @@ func TestProbeHandlerDefaultTarget(t *testing.T) {
 
 	conf := &config.Config{
 		Modules: map[string]config.Module{
-			"https": config.Module{
+			"https": {
 				Prober: "https",
 				Target: server.URL,
 				TLSConfig: config.TLSConfig{
@@ -223,7 +223,7 @@ func TestProbeHandlerServerName(t *testing.T) {
 
 	conf := &config.Config{
 		Modules: map[string]config.Module{
-			"https": config.Module{
+			"https": {
 				Prober: "https",
 				TLSConfig: config.TLSConfig{
 					CAFile: caFile,
@@ -247,7 +247,7 @@ func TestProbeHandlerServerName(t *testing.T) {
 func TestProbeHandlerServerNameConflict(t *testing.T) {
 	conf := &config.Config{
 		Modules: map[string]config.Module{
-			"https": config.Module{
+			"https": {
 				Prober: "https",
 				TLSConfig: config.TLSConfig{
 					ServerName: "configured.example.com",

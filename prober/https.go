@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
-	"github.com/piotrkochan/ssl_exporter/v2/config"
 )
 
 var userAgent = fmt.Sprintf("SSLExporter/%s", version.Version)

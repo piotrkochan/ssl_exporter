@@ -107,7 +107,7 @@ func (t *TCPServer) StartSMTP() {
 }
 
 // StartSMTPWithDashInResponse starts a listener that negotiates a TLS connection with an smtp
-// client using STARTTLS. The server provides the STARTTLS response in the form '250 STARTTLS' 
+// client using STARTTLS. The server provides the STARTTLS response in the form '250 STARTTLS'
 // (with a space, rather than a dash)
 func (t *TCPServer) StartSMTPWithDashInResponse() {
 	go func() {

@@ -89,12 +89,12 @@ func checkCertificateMetrics(cert *x509.Certificate, registry *prometheus.Regist
 		"ou":        "," + strings.Join(cert.Subject.OrganizationalUnit, ",") + ",",
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name:        "ssl_cert_not_after",
 			LabelValues: expectedLabels,
 			Value:       float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name:        "ssl_cert_not_before",
 			LabelValues: expectedLabels,
 			Value:       float64(cert.NotBefore.Unix()),
@@ -125,12 +125,12 @@ func checkVerifiedChainMetrics(verifiedChains [][]*x509.Certificate, registry *p
 				"ou":        "," + strings.Join(cert.Subject.OrganizationalUnit, ",") + ",",
 			}
 			expectedResults := []*registryResult{
-				&registryResult{
+				{
 					Name:        "ssl_verified_cert_not_after",
 					LabelValues: expectedLabels,
 					Value:       float64(cert.NotAfter.Unix()),
 				},
-				&registryResult{
+				{
 					Name:        "ssl_verified_cert_not_before",
 					LabelValues: expectedLabels,
 					Value:       float64(cert.NotBefore.Unix()),
@@ -167,27 +167,27 @@ func checkOCSPMetrics(resp []byte, registry *prometheus.Registry, t *testing.T) 
 		producedAt = float64(parsedResponse.ProducedAt.Unix())
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_stapled",
 			Value: stapled,
 		},
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_status",
 			Value: status,
 		},
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_next_update",
 			Value: nextUpdate,
 		},
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_this_update",
 			Value: thisUpdate,
 		},
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_revoked_at",
 			Value: revokedAt,
 		},
-		&registryResult{
+		{
 			Name:  "ssl_ocsp_response_produced_at",
 			Value: producedAt,
 		},
@@ -201,7 +201,7 @@ func checkTLSVersionMetrics(version string, registry *prometheus.Registry, t *te
 		t.Fatal(err)
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name: "ssl_tls_version_info",
 			LabelValues: map[string]string{
 				"version": version,

@@ -29,7 +29,7 @@ cover:
 
 format:
 	@echo ">> formatting code"
-	@go fmt ./...
+	@gofmt -s -w .
 
 vet:
 	@echo ">> vetting code"

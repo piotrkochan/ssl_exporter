@@ -166,7 +166,7 @@ func checkFileMetrics(cert *x509.Certificate, certFile string, registry *prometh
 		ips = ips + ip.String() + ","
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name: "ssl_file_cert_not_after",
 			LabelValues: map[string]string{
 				"file":      certFile,
@@ -180,7 +180,7 @@ func checkFileMetrics(cert *x509.Certificate, certFile string, registry *prometh
 			},
 			Value: float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_file_cert_not_before",
 			LabelValues: map[string]string{
 				"file":      certFile,

@@ -83,9 +83,9 @@ users:
 func createTestKubeconfig(dir, filename string) (*x509.Certificate, string, error) {
 	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour * 1))
 	clusterCert := KubeConfigClusterCert{CertificateAuthorityData: base64.StdEncoding.EncodeToString([]byte(certPEM))}
-	clusters := []KubeConfigCluster{KubeConfigCluster{Name: "kubernetes", Cluster: clusterCert}}
+	clusters := []KubeConfigCluster{{Name: "kubernetes", Cluster: clusterCert}}
 	userCert := KubeConfigUserCert{ClientCertificateData: base64.StdEncoding.EncodeToString([]byte(certPEM))}
-	users := []KubeConfigUser{KubeConfigUser{Name: "kubernetes-admin", User: userCert}}
+	users := []KubeConfigUser{{Name: "kubernetes-admin", User: userCert}}
 	k := KubeConfig{
 		Clusters: clusters,
 		Users:    users,
@@ -125,7 +125,7 @@ func checkKubeconfigMetrics(cert *x509.Certificate, kubeconfig string, registry 
 		ips = ips + ip.String() + ","
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name: "ssl_kubeconfig_cert_not_after",
 			LabelValues: map[string]string{
 				"kubeconfig": kubeconfig,
@@ -141,7 +141,7 @@ func checkKubeconfigMetrics(cert *x509.Certificate, kubeconfig string, registry 
 			},
 			Value: float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_kubeconfig_cert_not_before",
 			LabelValues: map[string]string{
 				"kubeconfig": kubeconfig,
@@ -157,7 +157,7 @@ func checkKubeconfigMetrics(cert *x509.Certificate, kubeconfig string, registry 
 			},
 			Value: float64(cert.NotBefore.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_kubeconfig_cert_not_after",
 			LabelValues: map[string]string{
 				"kubeconfig": kubeconfig,
@@ -173,7 +173,7 @@ func checkKubeconfigMetrics(cert *x509.Certificate, kubeconfig string, registry 
 			},
 			Value: float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_kubeconfig_cert_not_before",
 			LabelValues: map[string]string{
 				"kubeconfig": kubeconfig,
