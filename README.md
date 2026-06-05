@@ -1,5 +1,15 @@
 # SSL Certificate Exporter
 
+[![test](https://github.com/piotrkochan/ssl_exporter/actions/workflows/test.yaml/badge.svg)](https://github.com/piotrkochan/ssl_exporter/actions/workflows/test.yaml)
+[![E2E Tests](https://github.com/piotrkochan/ssl_exporter/actions/workflows/e2e.yml/badge.svg)](https://github.com/piotrkochan/ssl_exporter/actions/workflows/e2e.yml)
+[![CodeQL](https://github.com/piotrkochan/ssl_exporter/actions/workflows/codeql.yml/badge.svg)](https://github.com/piotrkochan/ssl_exporter/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/piotrkochan/ssl_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/piotrkochan/ssl_exporter)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/piotrkochan/ssl_exporter/badge)](https://scorecard.dev/viewer/?uri=github.com/piotrkochan/ssl_exporter)
+[![Go Report Card](https://goreportcard.com/badge/github.com/piotrkochan/ssl_exporter/v2)](https://goreportcard.com/report/github.com/piotrkochan/ssl_exporter/v2)
+[![Latest Release](https://img.shields.io/github/v/release/piotrkochan/ssl_exporter?logo=github)](https://github.com/piotrkochan/ssl_exporter/releases/latest)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-ssl__exporter-blue?logo=docker)](https://github.com/piotrkochan/ssl_exporter/pkgs/container/ssl_exporter)
+[![License](https://img.shields.io/github/license/piotrkochan/ssl_exporter)](LICENSE)
+
 Exports metrics for certificates collected from various sources:
 - [TCP probes](#tcp)
 - [HTTPS probes](#https)

@@ -23,6 +23,10 @@ test:
 	@echo ">> running tests"
 	go test -short -v $(RACE) ./...
 
+cover:
+	@echo ">> running tests with coverage"
+	go test -short $(RACE) -coverprofile=coverage.txt -covermode=atomic ./...
+
 format:
 	@echo ">> formatting code"
 	@go fmt ./...
@@ -66,4 +70,4 @@ e2e:
 	@chmod +x e2e/run.sh
 	@e2e/run.sh
 
-.PHONY: all style test format vet build docker snapshot release clean e2e
+.PHONY: all style test cover format vet build docker snapshot release clean e2e

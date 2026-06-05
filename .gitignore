@@ -11,6 +11,7 @@ ssl_exporter
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+coverage.txt
 
 # KetBrains IDEs files
 .idea
