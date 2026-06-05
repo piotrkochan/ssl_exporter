@@ -1,0 +1,23 @@
+suite: service
+templates:
+  - service.yaml
+tests:
+  - it: renders with defaults
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 9219
+
+  - it: uses custom port
+    set:
+      service:
+        port: 8443
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 8443

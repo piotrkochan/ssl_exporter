@@ -1,0 +1,78 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+## Installation
+
+```bash
+helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
+helm repo update
+helm install ssl-exporter ssl-exporter/ssl-exporter
+```
+
+## Examples
+
+### Basic auth
+
+```yaml
+webConfig:
+  enabled: true
+  data:
+    basic_auth_users:
+      admin: "$2y$10$hashedpassword"
+```
+
+### Basic auth with an existing Secret
+
+To avoid storing passwords in Helm values, create a Secret separately
+(e.g. via SealedSecrets or ExternalSecrets):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-web-config
+type: Opaque
+stringData:
+  web-config.yaml: |
+    basic_auth_users:
+      admin: "$2y$10$hashedpassword"
+```
+
+Then reference it:
+
+```yaml
+webConfig:
+  enabled: true
+  existingSecret: my-web-config
+```
+
+### TLS with an existing Secret
+
+```yaml
+tls:
+  enabled: true
+  existingSecret: my-tls-secret
+webConfig:
+  enabled: true  # auto-generates web-config.yaml with tls_server_config
+```
+
+### TLS with cert-manager
+
+```yaml
+tls:
+  enabled: true
+  certManager:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+webConfig:
+  enabled: true
+```
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.maintainersSection" . }}

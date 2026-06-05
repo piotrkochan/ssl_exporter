@@ -1,0 +1,64 @@
+suite: servicemonitor
+templates:
+  - servicemonitor.yaml
+tests:
+  - it: is not created when disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is created when enabled
+    set:
+      serviceMonitor:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ServiceMonitor
+
+  - it: does not have tls config when tls disabled
+    set:
+      serviceMonitor:
+        enabled: true
+    asserts:
+      - isNull:
+          path: spec.endpoints[0].scheme
+      - isNull:
+          path: spec.endpoints[0].tlsConfig
+
+  - it: sets https scheme when tls enabled
+    set:
+      serviceMonitor:
+        enabled: true
+      tls:
+        enabled: true
+        existingSecret: my-tls
+    asserts:
+      - equal:
+          path: spec.endpoints[0].scheme
+          value: https
+      - equal:
+          path: spec.endpoints[0].tlsConfig.insecureSkipVerify
+          value: true
+
+  - it: renders custom labels
+    set:
+      serviceMonitor:
+        enabled: true
+        labels:
+          release: prometheus
+    asserts:
+      - equal:
+          path: metadata.labels.release
+          value: prometheus
+
+  - it: renders in custom namespace
+    set:
+      serviceMonitor:
+        enabled: true
+        namespace: monitoring
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: monitoring
