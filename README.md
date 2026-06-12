@@ -18,6 +18,7 @@ Exports metrics for certificates collected from various sources:
 - [Java KeyStore / PKCS12 files](#keystore)
 - [Kubernetes secrets](#kubernetes)
 - [Kubeconfig files](#kubeconfig)
+- [TLS configuration enumeration](#tls_cipher)
 
 The metrics are labelled with fields from the certificate, which allows for
 informational dashboards and flexible alert routing.
@@ -105,6 +106,10 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_tls_version_info           | The TLS version used. Always 1.                                                                                  | version                                                                     | tcp, https |
 | ssl_verified_cert_not_after    | The date after which a certificate in the verified chain expires. Expressed as a Unix Epoch Time.                | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
 | ssl_verified_cert_not_before   | The date before which a certificate in the verified chain is not valid. Expressed as a Unix Epoch Time.          | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
+| ssl_tls_cipher_suite           | The cipher suite negotiated for the TLS connection. Always 1.                                                    | cipher_suite, insecure                                                      | tcp, https |
+| ssl_tls_key_exchange           | The key exchange mechanism used for the TLS connection. Always 1.                                                | key_exchange, post_quantum                                                  | tcp, https |
+| ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported 0=not supported.                                | cipher_suite, insecure                                                      | tls_cipher |
+| ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
 
 ## Configuration
 
@@ -393,6 +398,30 @@ scrape_configs:
         replacement: ${1}:9219
 ```
 
+### TLS Cipher
+
+The `tls_cipher` prober enumerates the cipher suites and key exchange groups
+supported by a TLS server. It is particularly useful for auditing security
+compliance and identifying the availability of modern standards like
+**Post-Quantum Cryptography (PQC)**.
+
+```
+curl "localhost:9219/probe?module=tls_cipher&target=example.com:443"
+```
+
+Because enumeration requires multiple handshakes, results are cached internally.
+You can tune this via `cache_ttl`.
+
+```yml
+modules:
+  tls_cipher:
+    prober: tls_cipher
+    tls_cipher:
+      cipher_set: all
+      key_exchange_set: pqc
+      cache_ttl: 1h
+```
+
 ## Configuration file
 
 You can provide further module configuration by providing the path to a
@@ -411,7 +440,7 @@ modules: [<module>]
 ### \<module\>
 
 ```
-# The type of probe (https, tcp, file, http_file, keystore, kubernetes, kubeconfig)
+# The type of probe (https, tcp, file, http_file, keystore, kubernetes, kubeconfig, tls_cipher)
 prober: <prober_string>
 
 # The probe target. If set, then the 'target' query parameter is ignored.
@@ -430,6 +459,7 @@ target: <string>
 [ kubernetes: <kubernetes_probe> ]
 [ http_file: <http_file_probe> ]
 [ keystore: <keystore_probe> ]
+[ tls_cipher: <tls_cipher_probe> ]
 ```
 
 ### <tls_config>
@@ -494,6 +524,30 @@ target: <string>
 [ password_file: <filename> ]
 ```
 
+### <tls_cipher_probe>
+
+```
+# Controls which cipher suites to test.
+# Valid options: insecure (default), all
+[ cipher_set: <string> ]
+
+# Controls which key exchange groups to test.
+# Valid options: pqc (default), all
+[ key_exchange_set: <string> ]
+
+# How long to cache the enumeration results.
+[ cache_ttl: <duration> | default = 1h ]
+
+# Resolve target hostname to an IP and use the IP in the cache key.
+# When enabled without sni_aware, multiple hostnames on the same IP will share the same cache entry (Deduplication).
+[ deduplicate_by_ip: <boolean> | default = false ]
+
+# Include the hostname in the deduplication cache key (Key: IP|Host).
+# Use this with deduplicate_by_ip for CDNs (like Cloudflare) where different hostnames on the same IP can have different TLS policies.
+# NOTE: Enabling this makes deduplication inactive between different hostnames on the same IP, but maintains IP-safety.
+[ sni_aware: <boolean> | default = false ]
+```
+
 ## Examples
 
 The [`examples/`](examples) directory contains ready-to-use files:
@@ -511,7 +565,7 @@ ssl_cert_not_after - time() < 86400 * 7
 ```
 
 Certificates from any prober (tcp, https, file, keystore, kubernetes,
-kubeconfig) that expire within 7 days:
+kubeconfig, tls_cipher) that expire within 7 days:
 
 ```
 {__name__=~"ssl_.*cert_not_after"} - time() < 86400 * 7
