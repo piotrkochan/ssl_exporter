@@ -33,6 +33,9 @@ var (
 			"http_file": {
 				Prober: "http_file",
 			},
+			"tls_cipher": {
+				Prober: "tls_cipher",
+			},
 			"keystore": {
 				Prober: "keystore",
 			},
@@ -82,6 +85,7 @@ type Module struct {
 	TCP        TCPProbe        `yaml:"tcp,omitempty"`
 	Kubernetes KubernetesProbe `yaml:"kubernetes,omitempty"`
 	HTTPFile   HTTPFileProbe   `yaml:"http_file,omitempty"`
+	TLSCipher  TLSCipherProbe  `yaml:"tls_cipher,omitempty"`
 }
 
 // TLSConfig is a superset of config.TLSConfig that supports TLS renegotiation
@@ -173,6 +177,14 @@ type KubernetesProbe struct {
 // HTTPFileProbe configures a http_file probe
 type HTTPFileProbe struct {
 	ProxyURL URL `yaml:"proxy_url,omitempty"`
+}
+
+// TLSCipherProbe configures a tls_cipher probe
+type TLSCipherProbe struct {
+	CipherSet      string        `yaml:"cipher_set,omitempty"`
+	CacheMode      string        `yaml:"cache_mode,omitempty"`
+	CacheTTL       time.Duration `yaml:"cache_ttl,omitempty"`
+	KeyExchangeSet string        `yaml:"key_exchange_set,omitempty"`
 }
 
 // URL is a custom URL type that allows validation at configuration load time
