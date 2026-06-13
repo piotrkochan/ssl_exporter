@@ -235,6 +235,78 @@ func TestProbeTLSCipherAllKeyExchangeIncludesClassical(t *testing.T) {
 	}, mfs, t)
 }
 
+func TestBuildCipherCacheKey(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name      string
+		host      string
+		port      string
+		cacheMode string
+		wantKey   string
+	}{
+		{
+			name:      "empty mode defaults to hostname",
+			host:      "example.com",
+			port:      "443",
+			cacheMode: "",
+			wantKey:   "example.com:443",
+		},
+		{
+			name:      "hostname mode",
+			host:      "example.com",
+			port:      "8443",
+			cacheMode: "hostname",
+			wantKey:   "example.com:8443",
+		},
+		{
+			// 127.0.0.1 is an IP literal: LookupHost returns it as-is, no network call.
+			name:      "ip mode resolves to ip:port",
+			host:      "127.0.0.1",
+			port:      "443",
+			cacheMode: "ip",
+			wantKey:   "127.0.0.1:443",
+		},
+		{
+			name:      "sni mode appends hostname after pipe",
+			host:      "127.0.0.1",
+			port:      "443",
+			cacheMode: "sni",
+			wantKey:   "127.0.0.1:443|127.0.0.1",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.TLSCipherProbe{CacheMode: tc.cacheMode}
+			got, err := buildCipherCacheKey(ctx, tc.host, tc.port, cfg)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantKey {
+				t.Errorf("cache key: want %q, got %q", tc.wantKey, got)
+			}
+		})
+	}
+}
+
+func TestBuildCipherCacheKeyDNSFallback(t *testing.T) {
+	// A very short deadline forces the DNS lookup to time out, exercising the
+	// fallback path that returns hostname:port unchanged.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+
+	cfg := config.TLSCipherProbe{CacheMode: "ip"}
+	got, err := buildCipherCacheKey(ctx, "this-will-not-resolve.invalid", "443", cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "this-will-not-resolve.invalid:443"
+	if got != want {
+		t.Errorf("DNS fallback: want %q, got %q", want, got)
+	}
+}
+
 func TestProbeTLSCipherCacheReturnsSameMetrics(t *testing.T) {
 	addr, stop := startCipherTestServer(t)
 	defer stop()

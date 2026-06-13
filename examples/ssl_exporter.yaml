@@ -74,5 +74,5 @@ modules:
       key_exchange_set: pqc
       # cache_ttl: 1h (default)
       cache_ttl: 5m
-      # deduplicate_by_ip: true (default is false)
-      # sni_aware: true (default is false)
+      # cache_mode: "hostname" (default), "ip" (deduplicate shared IPs), "sni" (ip + SNI for CDNs)
+      # cache_mode: ip

@@ -153,18 +153,20 @@ func buildKeyExchangeList(kxSet string) []keyExchangeEntry {
 }
 
 func buildCipherCacheKey(ctx context.Context, host, port string, cfg config.TLSCipherProbe) (string, error) {
-	if !cfg.DeduplicateByIP {
+	switch cfg.CacheMode {
+	case "ip", "sni":
+		addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+		if err != nil || len(addrs) == 0 {
+			return net.JoinHostPort(host, port), nil
+		}
+		key := net.JoinHostPort(addrs[0], port)
+		if cfg.CacheMode == "sni" {
+			key += "|" + host
+		}
+		return key, nil
+	default: // "hostname" or empty
 		return net.JoinHostPort(host, port), nil
 	}
-	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
-	if err != nil || len(addrs) == 0 {
-		return net.JoinHostPort(host, port), nil
-	}
-	key := net.JoinHostPort(addrs[0], port)
-	if cfg.SNIAware {
-		key += "|" + host
-	}
-	return key, nil
 }
 
 func cipherCacheGet(key string) (map[uint16]bool, map[tls.CurveID]bool, bool) {

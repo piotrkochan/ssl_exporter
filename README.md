@@ -538,14 +538,13 @@ target: <string>
 # How long to cache the enumeration results.
 [ cache_ttl: <duration> | default = 1h ]
 
-# Resolve target hostname to an IP and use the IP in the cache key.
-# When enabled without sni_aware, multiple hostnames on the same IP will share the same cache entry (Deduplication).
-[ deduplicate_by_ip: <boolean> | default = false ]
-
-# Include the hostname in the deduplication cache key (Key: IP|Host).
-# Use this with deduplicate_by_ip for CDNs (like Cloudflare) where different hostnames on the same IP can have different TLS policies.
-# NOTE: Enabling this makes deduplication inactive between different hostnames on the same IP, but maintains IP-safety.
-[ sni_aware: <boolean> | default = false ]
+# Controls the cache key strategy.
+#   "hostname" (default) — key is hostname:port
+#   "ip"                 — resolve hostname to IP; key is ip:port
+#                          Multiple hostnames on the same IP share one cache entry (deduplication).
+#   "sni"                — resolve hostname to IP; key is ip:port|hostname
+#                          Use for CDNs (e.g. Cloudflare) where TLS policy may differ per SNI.
+[ cache_mode: <string> | default = "hostname" ]
 ```
 
 ## Examples
