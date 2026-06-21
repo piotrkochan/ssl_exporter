@@ -59,7 +59,11 @@ func collectKeyExchangeMetrics(curveID tls.CurveID, registry *prometheus.Registr
 	case tls.X25519MLKEM768, tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024:
 		pq = "true"
 	}
-	g.WithLabelValues(curveID.String(), pq).Set(1)
+	curveName := curveID.String()
+	if curveID == 0 {
+		curveName = "RSA"
+	}
+	g.WithLabelValues(curveName, pq).Set(1)
 	return nil
 }
 

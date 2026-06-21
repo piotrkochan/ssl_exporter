@@ -267,6 +267,19 @@ func TestCollectKeyExchangeMetricsClassical(t *testing.T) {
 	}, mfs, t)
 }
 
+func TestCollectKeyExchangeMetricsRSA(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if err := collectKeyExchangeMetrics(0, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_key_exchange",
+		LabelValues: map[string]string{"key_exchange": "RSA", "post_quantum": "false"},
+		Value:       1,
+	}, mfs, t)
+}
+
 func newCertificate(certPEM []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(certPEM)
 	return x509.ParseCertificate(block.Bytes)

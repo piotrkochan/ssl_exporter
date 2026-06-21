@@ -182,9 +182,9 @@ type HTTPFileProbe struct {
 // TLSCipherProbe configures a tls_cipher probe
 type TLSCipherProbe struct {
 	CipherSet      string        `yaml:"cipher_set,omitempty"`
-	CacheMode      string        `yaml:"cache_mode,omitempty"`
-	CacheTTL       time.Duration `yaml:"cache_ttl,omitempty"`
 	KeyExchangeSet string        `yaml:"key_exchange_set,omitempty"`
+	CacheTTL       time.Duration `yaml:"cache_ttl,omitempty"`
+	CacheMode      string        `yaml:"cache_mode,omitempty"`
 }
 
 // URL is a custom URL type that allows validation at configuration load time

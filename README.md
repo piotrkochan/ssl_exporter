@@ -108,7 +108,7 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_verified_cert_not_before   | The date before which a certificate in the verified chain is not valid. Expressed as a Unix Epoch Time.          | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
 | ssl_tls_cipher_suite           | The cipher suite negotiated for the TLS connection. Always 1.                                                    | cipher_suite, insecure                                                      | tcp, https |
 | ssl_tls_key_exchange           | The key exchange mechanism used for the TLS connection. Always 1.                                                | key_exchange, post_quantum                                                  | tcp, https |
-| ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported 0=not supported.                                | cipher_suite, insecure                                                      | tls_cipher |
+| ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported, 0=not supported, 2=not individually testable (TLS 1.3). | cipher_suite, insecure                                                      | tls_cipher |
 | ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
 
 ## Configuration
@@ -542,7 +542,7 @@ target: <string>
 #   "hostname" (default) — key is hostname:port
 #   "ip"                 — resolve hostname to IP; key is ip:port
 #                          Multiple hostnames on the same IP share one cache entry (deduplication).
-#   "sni"                — resolve hostname to IP; key is ip:port|hostname
+#   "sni"                — resolve hostname to IP; key is ip:port|<server_name>
 #                          Use for CDNs (e.g. Cloudflare) where TLS policy may differ per SNI.
 [ cache_mode: <string> | default = "hostname" ]
 ```
