@@ -1,16 +1,65 @@
 package main
 
 import (
+	"crypto/tls"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
 )
+
+func startSNICaptureTLSServer(t *testing.T) (addr string, seen <-chan string, stop func()) {
+	t.Helper()
+	certPEM, keyPEM := test.GenerateTestCertificate(time.Now().Add(24 * time.Hour))
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seenCh := make(chan string, 64)
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+	tlsCfg.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+		select {
+		case seenCh <- hello.ServerName:
+		default:
+		}
+		return nil, nil
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				_ = tls.Server(c, tlsCfg).Handshake()
+			}(conn)
+		}
+	}()
+
+	return ln.Addr().String(), seenCh, func() {
+		ln.Close()
+		<-done
+	}
+}
 
 // TestProbeHandler tests that the probe handler sets the ssl_probe_success and
 // ssl_prober metrics correctly
@@ -204,6 +253,50 @@ func TestProbeHandlerDefaultTarget(t *testing.T) {
 	// the query parameters
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected code: %d, got: %d", http.StatusBadRequest, rr.Code)
+	}
+}
+
+func TestProbeHandlerTLSCipherWithServerName(t *testing.T) {
+	addr, seen, stop := startSNICaptureTLSServer(t)
+	defer stop()
+
+	conf := &config.Config{
+		Modules: map[string]config.Module{
+			"tls_cipher": {
+				Prober: "tls_cipher",
+			},
+		},
+	}
+
+	const wantSNI = "vhost.example.com"
+	rr, err := probeWithServerName(addr, "tls_cipher", wantSNI, conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := rr.Body.String()
+	if ok := strings.Contains(body, "ssl_probe_success 1"); !ok {
+		t.Errorf("expected `ssl_probe_success 1`, got:\n%s", body)
+	}
+	if ok := strings.Contains(body, "ssl_prober{prober=\"tls_cipher\"} 1"); !ok {
+		t.Errorf("expected `ssl_prober{prober=\"tls_cipher\"} 1`, got:\n%s", body)
+	}
+	if ok := strings.Contains(body, "ssl_cipher_suite_supported"); !ok {
+		t.Errorf("expected `ssl_cipher_suite_supported`, got:\n%s", body)
+	}
+	if ok := strings.Contains(body, "ssl_key_exchange_supported"); !ok {
+		t.Errorf("expected `ssl_key_exchange_supported`, got:\n%s", body)
+	}
+
+	for {
+		select {
+		case got := <-seen:
+			if got == wantSNI {
+				return
+			}
+		default:
+			t.Fatalf("server did not observe configured SNI %q", wantSNI)
+		}
 	}
 }
 
