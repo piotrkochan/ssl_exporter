@@ -26,6 +26,14 @@ func collectConnectionStateMetrics(state tls.ConnectionState, registry *promethe
 		return err
 	}
 
+	if err := collectCipherMetrics(state.CipherSuite, registry); err != nil {
+		return err
+	}
+
+	if err := collectKeyExchangeMetrics(state.CurveID, registry); err != nil {
+		return err
+	}
+
 	if err := collectCertificateMetrics(state.PeerCertificates, registry); err != nil {
 		return err
 	}
@@ -35,6 +43,48 @@ func collectConnectionStateMetrics(state tls.ConnectionState, registry *promethe
 	}
 
 	return collectOCSPMetrics(state.OCSPResponse, registry)
+}
+
+func collectKeyExchangeMetrics(curveID tls.CurveID, registry *prometheus.Registry) error {
+	g := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: prometheus.BuildFQName(namespace, "", "tls_key_exchange"),
+			Help: "The key exchange mechanism used for the TLS connection",
+		},
+		[]string{"key_exchange", "post_quantum"},
+	)
+	registry.MustRegister(g)
+	pq := "false"
+	switch curveID {
+	case tls.X25519MLKEM768, tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024:
+		pq = "true"
+	}
+	curveName := curveID.String()
+	if curveID == 0 {
+		curveName = "RSA"
+	}
+	g.WithLabelValues(curveName, pq).Set(1)
+	return nil
+}
+
+func collectCipherMetrics(cipherSuite uint16, registry *prometheus.Registry) error {
+	g := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: prometheus.BuildFQName(namespace, "", "tls_cipher_suite"),
+			Help: "The cipher suite negotiated for the TLS connection",
+		},
+		[]string{"cipher_suite", "insecure"},
+	)
+	registry.MustRegister(g)
+	insecure := "false"
+	for _, s := range tls.InsecureCipherSuites() {
+		if s.ID == cipherSuite {
+			insecure = "true"
+			break
+		}
+	}
+	g.WithLabelValues(tls.CipherSuiteName(cipherSuite), insecure).Set(1)
+	return nil
 }
 
 func collectTLSVersionMetrics(version uint16, registry *prometheus.Registry) error {

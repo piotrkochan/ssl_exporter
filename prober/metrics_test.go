@@ -2,6 +2,7 @@ package prober
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -210,6 +211,73 @@ func checkTLSVersionMetrics(version string, registry *prometheus.Registry, t *te
 		},
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestCollectCipherMetricsSecure(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	suite := tls.CipherSuites()[0]
+	if err := collectCipherMetrics(suite.ID, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_cipher_suite",
+		LabelValues: map[string]string{"cipher_suite": suite.Name, "insecure": "false"},
+		Value:       1,
+	}, mfs, t)
+}
+
+func TestCollectCipherMetricsInsecure(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	suite := tls.InsecureCipherSuites()[0]
+	if err := collectCipherMetrics(suite.ID, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_cipher_suite",
+		LabelValues: map[string]string{"cipher_suite": suite.Name, "insecure": "true"},
+		Value:       1,
+	}, mfs, t)
+}
+
+func TestCollectKeyExchangeMetricsPQC(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if err := collectKeyExchangeMetrics(tls.X25519MLKEM768, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_key_exchange",
+		LabelValues: map[string]string{"key_exchange": tls.X25519MLKEM768.String(), "post_quantum": "true"},
+		Value:       1,
+	}, mfs, t)
+}
+
+func TestCollectKeyExchangeMetricsClassical(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if err := collectKeyExchangeMetrics(tls.X25519, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_key_exchange",
+		LabelValues: map[string]string{"key_exchange": tls.X25519.String(), "post_quantum": "false"},
+		Value:       1,
+	}, mfs, t)
+}
+
+func TestCollectKeyExchangeMetricsRSA(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if err := collectKeyExchangeMetrics(0, registry); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := registry.Gather()
+	checkRegistryResult(&registryResult{
+		Name:        "ssl_tls_key_exchange",
+		LabelValues: map[string]string{"key_exchange": "RSA", "post_quantum": "false"},
+		Value:       1,
+	}, mfs, t)
 }
 
 func newCertificate(certPEM []byte) (*x509.Certificate, error) {

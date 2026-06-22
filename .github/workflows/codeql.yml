@@ -31,6 +31,15 @@ jobs:
         uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           languages: go
+          config: |
+            # ssl_exporter intentionally probes insecure TLS configurations so
+            # users can detect and alert on them. These CodeQL rules are noisy
+            # for that expected project behavior.
+            query-filters:
+              - exclude:
+                  id: go/insecure-tls
+              - exclude:
+                  id: go/disabled-certificate-check
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
