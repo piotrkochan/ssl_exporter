@@ -52,6 +52,49 @@ func startCipherTestServer(t *testing.T) (addr string, stop func()) {
 	}
 }
 
+func startSNICaptureCipherTestServer(t *testing.T) (addr string, seen <-chan string, stop func()) {
+	t.Helper()
+	certPEM, keyPEM := test.GenerateTestCertificate(time.Now().Add(24 * time.Hour))
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seenCh := make(chan string, 64)
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+	tlsCfg.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+		select {
+		case seenCh <- hello.ServerName:
+		default:
+		}
+		return nil, nil
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				_ = tls.Server(c, tlsCfg).Handshake()
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), seenCh, func() {
+		ln.Close()
+		<-done
+	}
+}
+
 func cipherMetricCount(mfs []*dto.MetricFamily, name string) int {
 	for _, mf := range mfs {
 		if mf.GetName() == name {
@@ -76,6 +119,34 @@ func cipherMetricLabelValues(mfs []*dto.MetricFamily, name, labelName string) ma
 		}
 	}
 	return values
+}
+
+func cipherMetricValue(mfs []*dto.MetricFamily, name string, labels map[string]string) (float64, bool) {
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			matches := true
+			for wantName, wantValue := range labels {
+				found := false
+				for _, l := range m.GetLabel() {
+					if l.GetName() == wantName && l.GetValue() == wantValue {
+						found = true
+						break
+					}
+				}
+				if !found {
+					matches = false
+					break
+				}
+			}
+			if matches {
+				return m.GetGauge().GetValue(), true
+			}
+		}
+	}
+	return 0, false
 }
 
 func TestCipherCacheGetEvictsExpired(t *testing.T) {
@@ -185,6 +256,79 @@ func TestProbeTLSCipherAllEmitsSecureAndTLS13(t *testing.T) {
 	}
 }
 
+func TestProbeTLSCipherAllMarksOnlyNegotiatedTLS13CipherAsSupported(t *testing.T) {
+	addr, stop := startCipherTestServer(t)
+	defer stop()
+
+	registry := prometheus.NewRegistry()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	module := config.Module{
+		TLSCipher: config.TLSCipherProbe{CipherSet: "all"},
+	}
+	if err := ProbeTLSCipher(ctx, newTestLogger(), addr, module, registry); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var supported, notIndividuallyTestable int
+	for _, c := range tls13Ciphers {
+		got, ok := cipherMetricValue(mfs, "ssl_cipher_suite_supported", map[string]string{
+			"cipher_suite": c.name,
+			"insecure":     "false",
+		})
+		if !ok {
+			t.Fatalf("missing TLS 1.3 cipher metric for %s", c.name)
+		}
+		switch got {
+		case 1:
+			supported++
+		case 2:
+			notIndividuallyTestable++
+		default:
+			t.Fatalf("TLS 1.3 cipher %s: expected value 1 or 2, got %v", c.name, got)
+		}
+	}
+	if supported != 1 {
+		t.Fatalf("expected exactly one negotiated TLS 1.3 cipher with value 1, got %d", supported)
+	}
+	if notIndividuallyTestable != len(tls13Ciphers)-1 {
+		t.Fatalf("expected %d non-negotiated TLS 1.3 ciphers with value 2, got %d", len(tls13Ciphers)-1, notIndividuallyTestable)
+	}
+}
+
+func TestProbeTLSCipherUsesConfiguredServerNameAsSNI(t *testing.T) {
+	addr, seen, stop := startSNICaptureCipherTestServer(t)
+	defer stop()
+
+	const wantSNI = "vhost.example.com"
+	registry := prometheus.NewRegistry()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	module := config.Module{
+		TLSConfig: config.TLSConfig{ServerName: wantSNI},
+	}
+	if err := ProbeTLSCipher(ctx, newTestLogger(), addr, module, registry); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for {
+		select {
+		case got := <-seen:
+			if got == wantSNI {
+				return
+			}
+		default:
+			t.Fatalf("server did not observe configured SNI %q", wantSNI)
+		}
+	}
+}
+
 func TestProbeTLSCipherDefaultPQCKeyExchange(t *testing.T) {
 	addr, stop := startCipherTestServer(t)
 	defer stop()
@@ -261,6 +405,41 @@ func TestProbeTLSCipherAllKeyExchangeIncludesClassical(t *testing.T) {
 		LabelValues: map[string]string{"key_exchange": "X25519", "post_quantum": "false"},
 		Value:       1,
 	}, mfs, t)
+}
+
+// TestProbeTLSCipherCacheIsolationByKeyExchangeSet verifies that probes with
+// different key_exchange_set values do not share a cache entry.
+func TestProbeTLSCipherCacheIsolationByKeyExchangeSet(t *testing.T) {
+	addr, stop := startCipherTestServer(t)
+	defer stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	modDefault := config.Module{
+		TLSCipher: config.TLSCipherProbe{CacheTTL: 5 * time.Minute},
+	}
+	modAll := config.Module{
+		TLSCipher: config.TLSCipherProbe{KeyExchangeSet: "all", CacheTTL: 5 * time.Minute},
+	}
+
+	rDefault := prometheus.NewRegistry()
+	if err := ProbeTLSCipher(ctx, newTestLogger(), addr, modDefault, rDefault); err != nil {
+		t.Fatalf("default probe error: %v", err)
+	}
+	mfsDefault, _ := rDefault.Gather()
+
+	rAll := prometheus.NewRegistry()
+	if err := ProbeTLSCipher(ctx, newTestLogger(), addr, modAll, rAll); err != nil {
+		t.Fatalf("all probe error: %v", err)
+	}
+	mfsAll, _ := rAll.Gather()
+
+	cntDefault := cipherMetricCount(mfsDefault, "ssl_key_exchange_supported")
+	cntAll := cipherMetricCount(mfsAll, "ssl_key_exchange_supported")
+	if cntAll <= cntDefault {
+		t.Errorf("key_exchange_set=all (%d series) should have more KX metrics than default (%d series)", cntAll, cntDefault)
+	}
 }
 
 func TestBuildCipherCacheKey(t *testing.T) {
