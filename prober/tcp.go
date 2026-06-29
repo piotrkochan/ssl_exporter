@@ -17,7 +17,8 @@ import (
 
 // ProbeTCP performs a tcp probe
 func ProbeTCP(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
-	tlsConfig, err := newTLSConfig(target, registry, &module.TLSConfig)
+	ocspSource := module.OCSP.SourceOrDefault()
+	tlsConfig, err := newTLSConfig(target, registry, &module.TLSConfig, ocspSource)
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,15 @@ func ProbeTCP(ctx context.Context, logger *slog.Logger, target string, module co
 	tlsConn := tls.Client(conn, tlsConfig)
 	defer tlsConn.Close()
 
-	return tlsConn.Handshake()
+	if err := tlsConn.Handshake(); err != nil {
+		return err
+	}
+
+	if ocspSource.UsesResponder() {
+		collectOCSPResponderMetrics(ctx, tlsConn.ConnectionState(), module.OCSP, registry)
+	}
+
+	return nil
 }
 
 type queryResponse struct {

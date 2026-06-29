@@ -100,6 +100,12 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_ocsp_response_status       | The status in the OCSP response. 0=Good 1=Revoked 2=Unknown                                                      |                                                                             | tcp, https |
 | ssl_ocsp_response_stapled      | Does the connection state contain a stapled OCSP response? Boolean.                                              |                                                                             | tcp, https |
 | ssl_ocsp_response_this_update  | The thisUpdate value in the OCSP response. Expressed as a Unix Epoch Time                                        |                                                                             | tcp, https |
+| ssl_ocsp_responder_next_update | The nextUpdate value in the OCSP responder response. Expressed as a Unix Epoch Time                              |                                                                             | tcp, https |
+| ssl_ocsp_responder_produced_at | The producedAt value in the OCSP responder response. Expressed as a Unix Epoch Time                              |                                                                             | tcp, https |
+| ssl_ocsp_responder_revoked_at  | The revocationTime value in the OCSP responder response. Expressed as a Unix Epoch Time                          |                                                                             | tcp, https |
+| ssl_ocsp_responder_status      | The certificate status in the OCSP responder response. 0=Good 1=Revoked 2=Unknown                                |                                                                             | tcp, https |
+| ssl_ocsp_responder_success     | If the OCSP responder request completed and returned a parseable response.                                       |                                                                             | tcp, https |
+| ssl_ocsp_responder_this_update | The thisUpdate value in the OCSP responder response. Expressed as a Unix Epoch Time                              |                                                                             | tcp, https |
 | ssl_probe_duration_seconds     | Returns how long the probe took to complete in seconds.                                                          |                                                                             | all        |
 | ssl_probe_success              | Was the probe successful? Boolean.                                                                               |                                                                             | all        |
 | ssl_prober                     | The prober used by the exporter to connect to the target. Boolean.                                               | prober                                                                      | all        |
@@ -175,6 +181,48 @@ probe, which is useful when the target is an IP address:
 
 ```
 curl "localhost:9219/probe?module=https&target=1.2.3.4:443&server_name=example.com"
+```
+
+### OCSP
+
+The `tcp` and `https` probers can collect OCSP metrics from two sources:
+
+- `tls`: the stapled OCSP response sent by the server during the TLS handshake.
+  This is the default and preserves the historical behaviour.
+- `responder`: an active OCSP request to the responder URL from the certificate
+  `OCSPServer` extension.
+
+```yml
+modules:
+  https:
+    prober: https
+    ocsp:
+      source: tls # off, tls, responder, both
+```
+
+Active OCSP responder checks are disabled by default because they perform an
+extra HTTP request for every probe. Enable them explicitly:
+
+```yml
+modules:
+  https_ocsp_responder:
+    prober: https
+    ocsp:
+      source: responder
+      timeout: 5s
+```
+
+The responder URL is read from the leaf certificate by default. For private CAs
+or test environments it can be overridden:
+
+```yml
+modules:
+  https_ocsp_responder_override:
+    prober: https
+    ocsp:
+      source: responder
+      responder_url: http://ocsp.example.internal
+      timeout: 5s
 ```
 
 ### File

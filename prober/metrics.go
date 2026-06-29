@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
 	v1 "k8s.io/api/core/v1"
@@ -21,7 +22,7 @@ const (
 	namespace = "ssl"
 )
 
-func collectConnectionStateMetrics(state tls.ConnectionState, registry *prometheus.Registry) error {
+func collectConnectionStateMetrics(state tls.ConnectionState, registry *prometheus.Registry, ocspSource config.OCSPSource) error {
 	if err := collectTLSVersionMetrics(state.Version, registry); err != nil {
 		return err
 	}
@@ -42,7 +43,11 @@ func collectConnectionStateMetrics(state tls.ConnectionState, registry *promethe
 		return err
 	}
 
-	return collectOCSPMetrics(state.OCSPResponse, registry)
+	if ocspSource.UsesTLS() {
+		return collectOCSPMetrics(state.OCSPResponse, registry)
+	}
+
+	return nil
 }
 
 func collectKeyExchangeMetrics(curveID tls.CurveID, registry *prometheus.Registry) error {

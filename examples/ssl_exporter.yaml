@@ -2,6 +2,14 @@ default_module: https
 modules:
   https:
     prober: https
+  https_ocsp_responder:
+    prober: https
+    ocsp:
+      # source: "tls" keeps the default TLS stapling behaviour.
+      # source: "responder" sends an active request to the OCSP responder URL
+      # from the certificate. "both" collects both metric sets.
+      source: responder
+      timeout: 5s
   https_insecure:
     prober: https
     tls_config:
@@ -19,6 +27,11 @@ modules:
     timeout: 3s
   tcp:
     prober: tcp
+  tcp_ocsp_responder:
+    prober: tcp
+    ocsp:
+      source: responder
+      timeout: 5s
   tcp_servername:
     prober: tcp
     tls_config:

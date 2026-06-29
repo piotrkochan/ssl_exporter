@@ -12,7 +12,7 @@ import (
 
 // newTLSConfig sets up TLS config and instruments it with a function that
 // collects metrics for the verified chain
-func newTLSConfig(target string, registry *prometheus.Registry, cfg *config.TLSConfig) (*tls.Config, error) {
+func newTLSConfig(target string, registry *prometheus.Registry, cfg *config.TLSConfig, ocspSource config.OCSPSource) (*tls.Config, error) {
 	tlsConfig, err := config.NewTLSConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func newTLSConfig(target string, registry *prometheus.Registry, cfg *config.TLSC
 	}
 
 	tlsConfig.VerifyConnection = func(state tls.ConnectionState) error {
-		return collectConnectionStateMetrics(state, registry)
+		return collectConnectionStateMetrics(state, registry, ocspSource)
 	}
 
 	return tlsConfig, nil
