@@ -29,14 +29,6 @@ informational dashboards and flexible alert routing.
 
     docker run -p 9219:9219 ghcr.io/piotrkochan/ssl_exporter:latest <flags>
 
-### Helm
-
-```bash
-helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
-helm repo update
-helm install ssl-exporter ssl-exporter/ssl-exporter
-```
-
 ### Kustomize
 
 Basic in-cluster install:
@@ -50,6 +42,16 @@ Install with cluster-wide RBAC if ssl_exporter should read TLS certificates from
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
 ```
+
+### Helm
+
+```bash
+helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
+helm repo update
+helm install ssl-exporter ssl-exporter/ssl-exporter
+```
+
+See [Helm installation and configuration](docs/helm.md).
 
 ## Building from source
 
@@ -133,86 +135,6 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_tls_key_exchange           | The key exchange mechanism used for the TLS connection. Always 1.                                                | key_exchange, post_quantum                                                  | tcp, https |
 | ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported, 0=not supported, 2=not individually testable (TLS 1.3). | cipher_suite, insecure                                                      | tls_cipher |
 | ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
-
-## Helm Configuration
-
-All configuration options are documented in [`charts/ssl-exporter/values.yaml`](charts/ssl-exporter/values.yaml).
-
-#### Examples
-
-Basic install with ServiceMonitor:
-
-```yaml
-serviceMonitor:
-  enabled: true
-  labels:
-    release: prometheus
-```
-
-Enable basic auth:
-
-```yaml
-webConfig:
-  enabled: true
-  data:
-    basic_auth_users:
-      admin: "$2y$10$hashedpassword"
-```
-
-When `serviceMonitor.enabled=true`, configure Prometheus scrape credentials
-separately:
-
-```yaml
-serviceMonitor:
-  enabled: true
-  basicAuth:
-    username:
-      name: scrape-auth
-      key: username
-    password:
-      name: scrape-auth
-      key: password
-```
-
-Basic auth with an existing Secret (to avoid passwords in Helm values):
-
-```yaml
-webConfig:
-  enabled: true
-  secretName: my-web-config
-```
-
-TLS with an existing Secret:
-
-```yaml
-tls:
-  enabled: true
-  secretName: my-tls-secret
-```
-
-When scraping with ServiceMonitor and a custom CA or self-signed certificate,
-set `serviceMonitor.tlsConfig` explicitly.
-
-TLS with cert-manager:
-
-```yaml
-tls:
-  enabled: true
-  certManager:
-    enabled: true
-    issuerRef:
-      name: letsencrypt-prod
-      kind: ClusterIssuer
-```
-
-Kubernetes prober RBAC:
-
-```yaml
-serviceAccount:
-  automountServiceAccountToken: true
-rbac:
-  create: true
-```
 
 ## Configuration
 
