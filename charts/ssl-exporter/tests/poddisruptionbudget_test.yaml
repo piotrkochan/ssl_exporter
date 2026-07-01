@@ -1,0 +1,25 @@
+suite: poddisruptionbudget
+templates:
+  - poddisruptionbudget.yaml
+tests:
+  - it: is not created by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders when configured
+    set:
+      namespaceOverride: monitoring
+      podDisruptionBudget:
+        maxUnavailable: 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodDisruptionBudget
+      - equal:
+          path: metadata.namespace
+          value: monitoring
+      - equal:
+          path: spec.maxUnavailable
+          value: 1

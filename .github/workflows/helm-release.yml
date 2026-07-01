@@ -1,44 +1,21 @@
-name: test
+name: Helm Chart Release
 
 on:
   push:
     branches:
       - master
-  pull_request:
-    branches:
-      - master
+    paths:
+      - "charts/**"
 
 permissions:
-  contents: read
+  contents: write
+  pages: write
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version: '1.26'
-
-      - name: Test
-        run: make cover
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          files: ./coverage.txt
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   helm-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -61,31 +38,48 @@ jobs:
       - name: Install helm-unittest
         run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3
 
-      - name: Helm unit tests
+      - name: Helm lint and unit tests
         run: make helm-test
 
-      - name: List changed charts
-        id: list-changed
-        run: |
-          changed=$(ct list-changed --config ct.yaml)
-          if [[ -n "$changed" ]]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Chart-testing lint
-        if: steps.list-changed.outputs.changed == 'true'
-        run: ct lint --config ct.yaml
+        run: ct lint --config ct.yaml --charts charts/ssl-exporter
 
       - name: Create kind cluster
-        if: steps.list-changed.outputs.changed == 'true'
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
 
       - name: Chart-testing install
-        if: steps.list-changed.outputs.changed == 'true'
-        run: ct install --config ct.yaml
+        run: ct install --config ct.yaml --charts charts/ssl-exporter
 
       - name: Verify generated chart assets are up-to-date
         run: |
           make helm-docs
           make manifests
           git diff --exit-code charts/ssl-exporter/README.md deploy/manifests
+
+  release:
+    needs: helm-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: Azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
+        with:
+          version: v3.18.1
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@a0d2dc62c5e491af8ef6ba64a2e02bcf3fb33aa1 # v1.7.0
+        with:
+          charts_dir: charts
+          pages_branch: gh-pages
+          skip_existing: true
+          mark_as_latest: false
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

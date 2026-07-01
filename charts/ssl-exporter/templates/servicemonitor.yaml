@@ -1,0 +1,76 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "ssl-exporter.fullname" . }}
+  labels:
+    {{- include "ssl-exporter.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.serviceMonitor.namespace }}
+  namespace: {{ . }}
+  {{- else }}
+  namespace: {{ include "ssl-exporter.namespace" . }}
+  {{- end }}
+  {{- with .Values.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.serviceMonitor.targetLabels }}
+  targetLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.serviceMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  endpoints:
+    - port: http
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+      honorLabels: {{ .Values.serviceMonitor.honorLabels }}
+      honorTimestamps: {{ .Values.serviceMonitor.honorTimestamps }}
+      {{- with .Values.serviceMonitor.proxyUrl }}
+      proxyUrl: {{ . }}
+      {{- end }}
+      {{- if .Values.tls.enabled }}
+      scheme: https
+      {{- end }}
+      {{- with .Values.serviceMonitor.tlsConfig }}
+      tlsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.basicAuth }}
+      basicAuth:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if gt (int .Values.serviceMonitor.sampleLimit) 0 }}
+      sampleLimit: {{ .Values.serviceMonitor.sampleLimit }}
+      {{- end }}
+      {{- if gt (int .Values.serviceMonitor.targetLimit) 0 }}
+      targetLimit: {{ .Values.serviceMonitor.targetLimit }}
+      {{- end }}
+      {{- if gt (int .Values.serviceMonitor.labelLimit) 0 }}
+      labelLimit: {{ .Values.serviceMonitor.labelLimit }}
+      {{- end }}
+      {{- if gt (int .Values.serviceMonitor.labelNameLengthLimit) 0 }}
+      labelNameLengthLimit: {{ .Values.serviceMonitor.labelNameLengthLimit }}
+      {{- end }}
+      {{- if gt (int .Values.serviceMonitor.labelValueLengthLimit) 0 }}
+      labelValueLengthLimit: {{ .Values.serviceMonitor.labelValueLengthLimit }}
+      {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ssl-exporter.selectorLabels" . | nindent 6 }}
+{{- end }}

@@ -1,0 +1,42 @@
+suite: rbac
+templates:
+  - rbac.yaml
+tests:
+  - it: is not created by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates cluster role and binding when enabled
+    set:
+      rbac:
+        create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 0
+        isKind:
+          of: ClusterRole
+      - documentIndex: 1
+        isKind:
+          of: ClusterRoleBinding
+      - documentIndex: 0
+        equal:
+          path: rules[0].resources[0]
+          value: secrets
+      - documentIndex: 0
+        contains:
+          path: rules[0].verbs
+          content: list
+
+  - it: binds custom service account name
+    set:
+      rbac:
+        create: true
+      serviceAccount:
+        name: ssl-exporter-reader
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: subjects[0].name
+          value: ssl-exporter-reader
