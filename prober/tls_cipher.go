@@ -347,13 +347,29 @@ func testKeyExchangeGroup(ctx context.Context, host, port, serverName string, gr
 }
 
 func emitTLSCipherMetrics(ciphers []cipherEntry, testTLS13 bool, results map[uint16]bool, kxResults map[tls.CurveID]bool, kxGroups []keyExchangeEntry, registry *prometheus.Registry) error {
-	if err := emitCipherSuiteMetrics(ciphers, testTLS13, results, registry); err != nil {
+	tls13Supported := false
+	for _, c := range tls13Ciphers {
+		if results[c.id] {
+			tls13Supported = true
+			break
+		}
+	}
+	if !tls13Supported {
+		for _, ok := range kxResults {
+			if ok {
+				tls13Supported = true
+				break
+			}
+		}
+	}
+
+	if err := emitCipherSuiteMetrics(ciphers, testTLS13, tls13Supported, results, registry); err != nil {
 		return err
 	}
 	return emitKeyExchangeMetrics(kxResults, kxGroups, registry)
 }
 
-func emitCipherSuiteMetrics(ciphers []cipherEntry, testTLS13 bool, results map[uint16]bool, registry *prometheus.Registry) error {
+func emitCipherSuiteMetrics(ciphers []cipherEntry, testTLS13 bool, tls13Supported bool, results map[uint16]bool, registry *prometheus.Registry) error {
 	cipherSupported := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: prometheus.BuildFQName(namespace, "", "cipher_suite_supported"),
@@ -376,18 +392,11 @@ func emitCipherSuiteMetrics(ciphers []cipherEntry, testTLS13 bool, results map[u
 	}
 
 	if testTLS13 {
-		tls13Connected := false
-		for _, c := range tls13Ciphers {
-			if results[c.id] {
-				tls13Connected = true
-				break
-			}
-		}
 		for _, c := range tls13Ciphers {
 			val := 2.0 // TLS 1.3 supported; this cipher not individually selectable
 			if results[c.id] {
 				val = 1.0
-			} else if !tls13Connected {
+			} else if !tls13Supported {
 				val = 0.0 // TLS 1.3 not supported at all
 			}
 			cipherSupported.WithLabelValues(c.name, "false").Set(val)

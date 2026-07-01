@@ -256,7 +256,7 @@ func TestProbeTLSCipherAllEmitsSecureAndTLS13(t *testing.T) {
 	}
 }
 
-func TestProbeTLSCipherAllMarksOnlyNegotiatedTLS13CipherAsSupported(t *testing.T) {
+func TestProbeTLSCipherAllDoesNotMarkTLS13CiphersUnsupportedWhenTLS13Works(t *testing.T) {
 	addr, stop := startCipherTestServer(t)
 	defer stop()
 
@@ -293,11 +293,40 @@ func TestProbeTLSCipherAllMarksOnlyNegotiatedTLS13CipherAsSupported(t *testing.T
 			t.Fatalf("TLS 1.3 cipher %s: expected value 1 or 2, got %v", c.name, got)
 		}
 	}
-	if supported != 1 {
-		t.Fatalf("expected exactly one negotiated TLS 1.3 cipher with value 1, got %d", supported)
+	if supported > 1 {
+		t.Fatalf("expected at most one negotiated TLS 1.3 cipher with value 1, got %d", supported)
 	}
-	if notIndividuallyTestable != len(tls13Ciphers)-1 {
-		t.Fatalf("expected %d non-negotiated TLS 1.3 ciphers with value 2, got %d", len(tls13Ciphers)-1, notIndividuallyTestable)
+	if supported+notIndividuallyTestable != len(tls13Ciphers) {
+		t.Fatalf("expected all TLS 1.3 ciphers to be marked supported or not individually testable, got supported=%d not_individually_testable=%d", supported, notIndividuallyTestable)
+	}
+}
+
+func TestEmitTLSCipherMetricsMarksTLS13CiphersNotIndividuallyTestableWhenKXWorks(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	results := map[uint16]bool{}
+	kxResults := map[tls.CurveID]bool{
+		tls.X25519MLKEM768: true,
+	}
+
+	if err := emitTLSCipherMetrics(nil, true, results, kxResults, pqcKeyExchangeGroups, registry); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range tls13Ciphers {
+		got, ok := cipherMetricValue(mfs, "ssl_cipher_suite_supported", map[string]string{
+			"cipher_suite": c.name,
+			"insecure":     "false",
+		})
+		if !ok {
+			t.Fatalf("missing TLS 1.3 cipher metric for %s", c.name)
+		}
+		if got != 2 {
+			t.Fatalf("TLS 1.3 cipher %s: expected value 2, got %v", c.name, got)
+		}
 	}
 }
 
