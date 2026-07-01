@@ -85,9 +85,9 @@ manifests:
 	@echo ">> generating static Kubernetes manifests"
 	@mkdir -p $(MANIFEST_DIR)
 	@printf "# Generated from charts/ssl-exporter. Do not edit by hand.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: $(MANIFEST_NAMESPACE)\n" > $(MANIFEST_DIR)/ssl-exporter.yaml
-	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) >> $(MANIFEST_DIR)/ssl-exporter.yaml
+	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) | sed '/^[[:space:]]*helm.sh\/chart: /d;/^[[:space:]]*app.kubernetes.io\/managed-by: Helm/d' >> $(MANIFEST_DIR)/ssl-exporter.yaml
 	@printf "# Generated from charts/ssl-exporter. Do not edit by hand.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: $(MANIFEST_NAMESPACE)\n" > $(MANIFEST_DIR)/ssl-exporter-kubernetes-secrets.yaml
-	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) --set rbac.create=true --set serviceAccount.automountServiceAccountToken=true >> $(MANIFEST_DIR)/ssl-exporter-kubernetes-secrets.yaml
+	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) --set rbac.create=true --set serviceAccount.automountServiceAccountToken=true | sed '/^[[:space:]]*helm.sh\/chart: /d;/^[[:space:]]*app.kubernetes.io\/managed-by: Helm/d' >> $(MANIFEST_DIR)/ssl-exporter-kubernetes-secrets.yaml
 
 e2e:
 	@echo ">> running e2e tests"

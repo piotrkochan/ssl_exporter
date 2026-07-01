@@ -37,7 +37,7 @@ helm repo update
 helm install ssl-exporter ssl-exporter/ssl-exporter
 ```
 
-### Static Kubernetes manifests
+### Kustomize
 
 Basic in-cluster install:
 

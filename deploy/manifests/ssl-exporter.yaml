@@ -11,11 +11,9 @@ metadata:
   name: ssl-exporter
   namespace: ssl-exporter
   labels:
-    helm.sh/chart: ssl-exporter-0.1.0
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
     app.kubernetes.io/version: "2.6.1"
-    app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: false
 ---
 # Source: ssl-exporter/templates/configmap.yaml
@@ -25,11 +23,9 @@ metadata:
   name: ssl-exporter
   namespace: ssl-exporter
   labels:
-    helm.sh/chart: ssl-exporter-0.1.0
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
     app.kubernetes.io/version: "2.6.1"
-    app.kubernetes.io/managed-by: Helm
 data:
   config.yaml: |
     modules:
@@ -49,11 +45,9 @@ metadata:
   name: ssl-exporter
   namespace: ssl-exporter
   labels:
-    helm.sh/chart: ssl-exporter-0.1.0
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
     app.kubernetes.io/version: "2.6.1"
-    app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
   ports:
@@ -72,11 +66,9 @@ metadata:
   name: ssl-exporter
   namespace: ssl-exporter
   labels:
-    helm.sh/chart: ssl-exporter-0.1.0
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
     app.kubernetes.io/version: "2.6.1"
-    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   revisionHistoryLimit: 10
