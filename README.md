@@ -23,7 +23,35 @@ Exports metrics for certificates collected from various sources:
 The metrics are labelled with fields from the certificate, which allows for
 informational dashboards and flexible alert routing.
 
-## Building
+## Installation
+
+### Docker
+
+    docker run -p 9219:9219 ghcr.io/piotrkochan/ssl_exporter:latest <flags>
+
+### Helm
+
+```bash
+helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
+helm repo update
+helm install ssl-exporter ssl-exporter/ssl-exporter
+```
+
+### Static Kubernetes manifests
+
+Basic in-cluster install:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
+```
+
+Install with cluster-wide RBAC for the Kubernetes Secrets prober:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
+```
+
+## Building from source
 
     make
     ./ssl_exporter <flags>
@@ -32,18 +60,6 @@ Similarly to the blackbox_exporter, visiting
 [http://localhost:9219/probe?target=example.com:443](http://localhost:9219/probe?target=example.com:443)
 will return certificate metrics for example.com. The `ssl_probe_success`
 metric indicates if the probe has been successful.
-
-### Docker
-
-    docker run -p 9219:9219 ghcr.io/piotrkochan/ssl_exporter:latest <flags>
-
-### Release process
-
-- Update the Helm chart version in [`charts/ssl-exporter/Chart.yaml`](charts/ssl-exporter/Chart.yaml)
-- Create a release in Github with a semver tag and GH actions will:
-  - Add a changelog
-  - Upload binaries
-  - Build and push a Docker image
 
 ## Usage
 
@@ -118,29 +134,7 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported, 0=not supported, 2=not individually testable (TLS 1.3). | cipher_suite, insecure                                                      | tls_cipher |
 | ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
 
-## Helm Chart
-
-### Installation
-
-```bash
-helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
-helm repo update
-helm install ssl-exporter ssl-exporter/ssl-exporter
-```
-
-Or install static manifests directly:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
-```
-
-For the Kubernetes Secrets prober, use the cluster-wide RBAC variant:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
-```
-
-### Configuration
+## Helm Configuration
 
 All configuration options are documented in [`charts/ssl-exporter/values.yaml`](charts/ssl-exporter/values.yaml).
 
