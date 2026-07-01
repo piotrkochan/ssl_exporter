@@ -27,6 +27,8 @@ jobs:
 
       - name: Set up Helm
         uses: Azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
+        with:
+          version: v3.18.1
 
       - name: Generate docs and manifests
         run: |
