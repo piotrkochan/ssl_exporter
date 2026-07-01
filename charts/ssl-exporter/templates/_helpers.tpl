@@ -24,10 +24,39 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
+Namespace for namespaced resources.
+*/}}
+{{- define "ssl-exporter.namespace" -}}
+{{- default .Release.Namespace .Values.namespaceOverride }}
+{{- end }}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "ssl-exporter.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Container image reference.
+*/}}
+{{- define "ssl-exporter.image" -}}
+{{- $registry := default .Values.image.registry .Values.global.imageRegistry -}}
+{{- $repository := .Values.image.repository -}}
+{{- if .Values.image.digest -}}
+{{- if $registry -}}
+{{- printf "%s/%s@%s" $registry $repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s@%s" $repository .Values.image.digest -}}
+{{- end -}}
+{{- else -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- if $registry -}}
+{{- printf "%s/%s:%s" $registry $repository $tag -}}
+{{- else -}}
+{{- printf "%s:%s" $repository $tag -}}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -40,6 +69,9 @@ helm.sh/chart: {{ include "ssl-exporter.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.commonLabels }}
+{{ toYaml .Values.commonLabels }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -54,8 +86,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Name of the TLS Secret
 */}}
 {{- define "ssl-exporter.tlsSecretName" -}}
-{{- if .Values.tls.existingSecret }}
-{{- .Values.tls.existingSecret }}
+{{- if .Values.tls.secretName }}
+{{- .Values.tls.secretName }}
 {{- else }}
 {{- printf "%s-tls" (include "ssl-exporter.fullname" .) }}
 {{- end }}
@@ -65,7 +97,7 @@ Name of the TLS Secret
 Whether web-config.yaml should be mounted and passed to ssl_exporter.
 */}}
 {{- define "ssl-exporter.webConfigEnabled" -}}
-{{- if or .Values.webConfig.enabled .Values.tls.enabled -}}
+{{- if or .Values.webConfig.enabled .Values.webConfig.secretName .Values.tls.enabled -}}
 true
 {{- end -}}
 {{- end }}
@@ -74,8 +106,8 @@ true
 Name of the web-config Secret
 */}}
 {{- define "ssl-exporter.webConfigSecretName" -}}
-{{- if .Values.webConfig.existingSecret }}
-{{- .Values.webConfig.existingSecret }}
+{{- if .Values.webConfig.secretName }}
+{{- .Values.webConfig.secretName }}
 {{- else }}
 {{- printf "%s-web-config" (include "ssl-exporter.fullname" .) }}
 {{- end }}
@@ -85,10 +117,10 @@ Name of the web-config Secret
 Validate TLS values that cannot produce a working deployment.
 */}}
 {{- define "ssl-exporter.validateTLS" -}}
-{{- if and .Values.tls.enabled (not .Values.tls.existingSecret) (not .Values.tls.certManager.enabled) -}}
-{{- fail "tls.enabled requires tls.existingSecret or tls.certManager.enabled=true" -}}
+{{- if and .Values.tls.enabled (not .Values.tls.secretName) (not .Values.tls.certManager.enabled) -}}
+{{- fail "tls.enabled requires tls.secretName or tls.certManager.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.tls.enabled .Values.tls.certManager.enabled (not .Values.tls.existingSecret) (not .Values.tls.certManager.issuerRef.name) -}}
+{{- if and .Values.tls.enabled .Values.tls.certManager.enabled (not .Values.tls.certManager.issuerRef.name) -}}
 {{- fail "tls.certManager.issuerRef.name is required when tls.certManager.enabled=true" -}}
 {{- end -}}
 {{- end }}

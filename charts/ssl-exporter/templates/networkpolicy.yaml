@@ -1,0 +1,27 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ssl-exporter.fullname" . }}
+  namespace: {{ include "ssl-exporter.namespace" . }}
+  labels:
+    {{- include "ssl-exporter.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ssl-exporter.selectorLabels" . | nindent 6 }}
+  ingress:
+  {{- if .Values.networkPolicy.allowMonitoringNamespace }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespaceName }}
+      ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+  {{- else }}
+    - {}
+  {{- end }}
+  policyTypes:
+    - Ingress
+{{- end }}

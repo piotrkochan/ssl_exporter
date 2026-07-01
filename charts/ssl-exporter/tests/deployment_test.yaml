@@ -10,6 +10,15 @@ tests:
       - isKind:
           of: Deployment
       - equal:
+          path: spec.revisionHistoryLimit
+          value: 10
+      - equal:
+          path: spec.strategy.type
+          value: RollingUpdate
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/piotrkochan/ssl_exporter:2.6.1
+      - equal:
           path: spec.template.spec.containers[0].args
           value:
             - --web.probe-path=/probe
@@ -63,7 +72,7 @@ tests:
     set:
       webConfig:
         enabled: true
-        existingSecret: my-web-config
+        secretName: my-web-config
     asserts:
       - contains:
           path: spec.template.spec.volumes
@@ -72,12 +81,12 @@ tests:
             secret:
               secretName: my-web-config
 
-  - it: adds tls volume when tls enabled with existingSecret
+  - it: adds tls volume when tls enabled with secretName
     template: deployment.yaml
     set:
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
     asserts:
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
@@ -97,7 +106,7 @@ tests:
     set:
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
@@ -115,7 +124,7 @@ tests:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.scheme
           value: HTTPS
 
-  - it: uses generated tls secret name when no existingSecret
+  - it: uses generated tls secret name when no secretName
     template: deployment.yaml
     set:
       tls:
@@ -137,7 +146,7 @@ tests:
     set:
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
         mountPath: /custom/tls
     asserts:
       - contains:
@@ -163,7 +172,7 @@ tests:
         enabled: true
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
       extraVolumes:
         - name: extra
           emptyDir: {}
@@ -197,3 +206,72 @@ tests:
           content:
             name: HTTPS_PROXY
             value: "http://proxy:8080"
+
+  - it: renders extra env from
+    template: deployment.yaml
+    set:
+      extraEnvFrom:
+        - secretRef:
+            name: ssl-exporter-env
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: ssl-exporter-env
+
+  - it: renders deployment annotations and scheduling values
+    template: deployment.yaml
+    set:
+      global:
+        imageRegistry: registry.example.com
+      image:
+        digest: sha256:abc123
+      namespaceOverride: monitoring
+      deploymentAnnotations:
+        reloader.stakater.com/auto: "true"
+      revisionHistoryLimit: 3
+      strategy:
+        type: Recreate
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+          - 1.1.1.1
+      priorityClassName: monitoring
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ssl-exporter
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: monitoring
+      - equal:
+          path: metadata.annotations["reloader.stakater.com/auto"]
+          value: "true"
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 3
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - isNull:
+          path: spec.strategy.rollingUpdate
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: None
+      - contains:
+          path: spec.template.spec.dnsConfig.nameservers
+          content: 1.1.1.1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/piotrkochan/ssl_exporter@sha256:abc123
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: monitoring
+      - lengthEqual:
+          path: spec.template.spec.topologySpreadConstraints
+          count: 1

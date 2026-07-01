@@ -37,6 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -46,14 +48,39 @@ jobs:
       - name: Set up Helm
         uses: Azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
 
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.x'
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
       - name: Install helm-unittest
         run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3
 
-      - name: Helm lint
-        run: helm lint charts/ssl-exporter
-
       - name: Helm unit tests
         run: make helm-test
+
+      - name: List changed charts
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --config ct.yaml)
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Chart-testing lint
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct lint --config ct.yaml
+
+      - name: Create kind cluster
+        if: steps.list-changed.outputs.changed == 'true'
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+
+      - name: Chart-testing install
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct install --config ct.yaml
 
       - name: Verify generated chart assets are up-to-date
         run: |

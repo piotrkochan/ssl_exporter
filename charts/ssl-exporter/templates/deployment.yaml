@@ -4,10 +4,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "ssl-exporter.fullname" . }}
+  namespace: {{ include "ssl-exporter.namespace" . }}
   labels:
     {{- include "ssl-exporter.labels" . | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  strategy:
+    type: {{ .Values.strategy.type }}
+    {{- if and (eq .Values.strategy.type "RollingUpdate") .Values.strategy.rollingUpdate }}
+    rollingUpdate:
+      {{- toYaml .Values.strategy.rollingUpdate | nindent 6 }}
+    {{- end }}
   selector:
     matchLabels:
       {{- include "ssl-exporter.selectorLabels" . | nindent 6 }}
@@ -15,7 +27,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml" ) . | sha256sum }}
-        {{- if and $webConfigEnabled (not .Values.webConfig.existingSecret) }}
+        {{- if and $webConfigEnabled (not .Values.webConfig.secretName) }}
         checksum/web-config: {{ include (print $.Template.BasePath "/secret-web-config.yaml" ) . | sha256sum }}
         {{- end }}
       {{- with .Values.podAnnotations }}
@@ -32,13 +44,23 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "ssl-exporter.serviceAccountName" . }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "ssl-exporter.image" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --web.probe-path=/probe
@@ -54,6 +76,10 @@ spec:
             {{- end }}
           {{- with .Values.extraEnv }}
           env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
@@ -97,6 +123,10 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if or .Values.config.enabled $webConfigEnabled .Values.tls.enabled .Values.extraVolumes }}

@@ -11,25 +11,28 @@ tests:
     set:
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: is not created when existingSecret is set even if certManager enabled
+  - it: uses custom secret name when certManager enabled
     set:
       tls:
         enabled: true
-        existingSecret: my-tls
+        secretName: my-tls
         certManager:
           enabled: true
           issuerRef:
             name: letsencrypt
     asserts:
       - hasDocuments:
-          count: 0
+          count: 1
+      - equal:
+          path: spec.secretName
+          value: my-tls
 
-  - it: is created when tls and certManager enabled without existingSecret
+  - it: is created when tls and certManager enabled without secretName
     set:
       tls:
         enabled: true
@@ -91,6 +94,26 @@ tests:
           issuerRef:
             name: letsencrypt
     asserts:
+      - contains:
+          path: spec.dnsNames
+          content: my-release-ssl-exporter.monitoring.svc
+
+  - it: uses namespace override for default dnsName
+    release:
+      name: my-release
+      namespace: default
+    set:
+      namespaceOverride: monitoring
+      tls:
+        enabled: true
+        certManager:
+          enabled: true
+          issuerRef:
+            name: letsencrypt
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: monitoring
       - contains:
           path: spec.dnsNames
           content: my-release-ssl-exporter.monitoring.svc

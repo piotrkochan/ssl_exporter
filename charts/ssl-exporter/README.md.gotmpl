@@ -18,7 +18,7 @@ Or install static manifests directly:
 kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
 ```
 
-For the Kubernetes Secrets prober, use the cluster-wide RBAC variant:
+Use the cluster-wide RBAC variant only when ssl_exporter should read TLS certificates from Kubernetes Secrets:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
@@ -73,7 +73,7 @@ Then reference it:
 ```yaml
 webConfig:
   enabled: true
-  existingSecret: my-web-config
+  secretName: my-web-config
 ```
 
 ### TLS with an existing Secret
@@ -81,7 +81,7 @@ webConfig:
 ```yaml
 tls:
   enabled: true
-  existingSecret: my-tls-secret
+  secretName: my-tls-secret
 ```
 
 When scraping with ServiceMonitor and a custom CA or self-signed certificate,

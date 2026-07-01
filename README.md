@@ -45,7 +45,7 @@ Basic in-cluster install:
 kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
 ```
 
-Install with cluster-wide RBAC for the Kubernetes Secrets prober:
+Install with cluster-wide RBAC if ssl_exporter should read TLS certificates from Kubernetes Secrets:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
@@ -138,13 +138,6 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 
 All configuration options are documented in [`charts/ssl-exporter/values.yaml`](charts/ssl-exporter/values.yaml).
 
-Key features:
-- **Exporter module config** (`config`) — configure probers (https, tcp, file, kubernetes)
-- **ServiceMonitor** (`serviceMonitor`) — Prometheus Operator integration
-- **Web config** (`webConfig`) — TLS and basic auth for the exporter's own endpoints via `--web.config.file`
-- **TLS** (`tls`) — mount TLS certificates from an existing Secret or provision them with cert-manager
-- **RBAC** (`rbac`) — optional cluster-wide Secret list permission for the kubernetes prober
-
 #### Examples
 
 Basic install with ServiceMonitor:
@@ -186,7 +179,7 @@ Basic auth with an existing Secret (to avoid passwords in Helm values):
 ```yaml
 webConfig:
   enabled: true
-  existingSecret: my-web-config
+  secretName: my-web-config
 ```
 
 TLS with an existing Secret:
@@ -194,7 +187,7 @@ TLS with an existing Secret:
 ```yaml
 tls:
   enabled: true
-  existingSecret: my-tls-secret
+  secretName: my-tls-secret
 ```
 
 When scraping with ServiceMonitor and a custom CA or self-signed certificate,

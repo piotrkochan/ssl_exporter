@@ -22,7 +22,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: {{ include "ssl-exporter.serviceAccountName" . }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ include "ssl-exporter.namespace" . }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

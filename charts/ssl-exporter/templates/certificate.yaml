@@ -1,9 +1,10 @@
 {{- include "ssl-exporter.validateTLS" . }}
-{{- if and .Values.tls.enabled .Values.tls.certManager.enabled (not .Values.tls.existingSecret) }}
+{{- if and .Values.tls.enabled .Values.tls.certManager.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "ssl-exporter.fullname" . }}
+  namespace: {{ include "ssl-exporter.namespace" . }}
   labels:
     {{- include "ssl-exporter.labels" . | nindent 4 }}
 spec:
@@ -14,7 +15,7 @@ spec:
     {{- if .Values.tls.certManager.dnsNames }}
     {{- toYaml .Values.tls.certManager.dnsNames | nindent 4 }}
     {{- else }}
-    - {{ include "ssl-exporter.fullname" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "ssl-exporter.fullname" . }}.{{ include "ssl-exporter.namespace" . }}.svc
     {{- end }}
   issuerRef:
     name: {{ .Values.tls.certManager.issuerRef.name }}

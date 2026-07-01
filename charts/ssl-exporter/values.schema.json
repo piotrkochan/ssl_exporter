@@ -3,14 +3,45 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "imageRegistry": {
+          "type": "string"
+        }
+      }
+    },
     "replicaCount": {
       "type": "integer",
       "minimum": 1
+    },
+    "namespaceOverride": {
+      "type": "string"
+    },
+    "commonLabels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "revisionHistoryLimit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "deploymentAnnotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "image": {
       "type": "object",
       "additionalProperties": true,
       "properties": {
+        "registry": {
+          "type": "string"
+        },
         "repository": {
           "type": "string",
           "minLength": 1
@@ -20,6 +51,9 @@
           "enum": ["Always", "IfNotPresent", "Never"]
         },
         "tag": {
+          "type": "string"
+        },
+        "digest": {
           "type": "string"
         }
       }
@@ -36,8 +70,90 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 65535
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ipDualStack": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ipFamilies": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["IPv4", "IPv6"]
+              }
+            },
+            "ipFamilyPolicy": {
+              "type": "string",
+              "enum": ["SingleStack", "PreferDualStack", "RequireDualStack"]
+            }
+          }
         }
       }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "allowMonitoringNamespace": {
+          "type": "boolean"
+        },
+        "monitoringNamespaceName": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "extraEnvFrom": {
+      "type": "array"
+    },
+    "strategy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["RollingUpdate", "Recreate"]
+        },
+        "rollingUpdate": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "priorityClassName": {
+      "type": "string"
+    },
+    "dnsPolicy": {
+      "type": "string"
+    },
+    "dnsConfig": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "topologySpreadConstraints": {
+      "type": "array"
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "additionalProperties": true
     },
     "rbac": {
       "type": "object",
@@ -76,6 +192,53 @@
         "scrapeTimeout": {
           "type": "string"
         },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "targetLabels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "podTargetLabels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "honorLabels": {
+          "type": "boolean"
+        },
+        "honorTimestamps": {
+          "type": "boolean"
+        },
+        "proxyUrl": {
+          "type": "string"
+        },
+        "sampleLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targetLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "labelLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "labelNameLengthLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "labelValueLengthLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
         "tlsConfig": {
           "type": "object",
           "additionalProperties": true
@@ -93,7 +256,7 @@
         "enabled": {
           "type": "boolean"
         },
-        "existingSecret": {
+        "secretName": {
           "type": "string"
         },
         "data": {
@@ -109,7 +272,7 @@
         "enabled": {
           "type": "boolean"
         },
-        "existingSecret": {
+        "secretName": {
           "type": "string"
         },
         "mountPath": {
@@ -189,12 +352,12 @@
             "anyOf": [
               {
                 "properties": {
-                  "existingSecret": {
+                  "secretName": {
                     "type": "string",
                     "minLength": 1
                   }
                 },
-                "required": ["existingSecret"]
+                "required": ["secretName"]
               },
               {
                 "properties": {
@@ -219,6 +382,48 @@
                 "required": ["certManager"]
               }
             ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["tls"],
+        "properties": {
+          "tls": {
+            "required": ["certManager"],
+            "properties": {
+              "certManager": {
+                "required": ["enabled"],
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tls": {
+            "properties": {
+              "certManager": {
+                "required": ["issuerRef"],
+                "properties": {
+                  "issuerRef": {
+                    "required": ["name"],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

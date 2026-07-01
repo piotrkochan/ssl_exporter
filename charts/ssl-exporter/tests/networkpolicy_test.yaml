@@ -1,0 +1,50 @@
+suite: networkpolicy
+templates:
+  - networkpolicy.yaml
+tests:
+  - it: is not created by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: allows ingress from anywhere when enabled
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/name"]
+          value: ssl-exporter
+      - equal:
+          path: spec.ingress[0]
+          value: {}
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+
+  - it: limits ingress to monitoring namespace
+    set:
+      namespaceOverride: ssl-exporter
+      service:
+        port: 9443
+      networkPolicy:
+        enabled: true
+        allowMonitoringNamespace: true
+        monitoringNamespaceName: monitoring
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: ssl-exporter
+      - equal:
+          path: spec.ingress[0].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: monitoring
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 9443
+      - equal:
+          path: spec.ingress[0].ports[0].protocol
+          value: TCP
