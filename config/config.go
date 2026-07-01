@@ -80,6 +80,7 @@ type Module struct {
 	Target     string          `yaml:"target,omitempty"`
 	Timeout    time.Duration   `yaml:"timeout,omitempty"`
 	TLSConfig  TLSConfig       `yaml:"tls_config,omitempty"`
+	OCSP       OCSPProbe       `yaml:"ocsp,omitempty"`
 	Keystore   KeystoreProbe   `yaml:"keystore,omitempty"`
 	HTTPS      HTTPSProbe      `yaml:"https,omitempty"`
 	TCP        TCPProbe        `yaml:"tcp,omitempty"`
@@ -138,6 +139,64 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 	tlsConfig.Renegotiation = tls.RenegotiationSupport(cfg.Renegotiation)
 
 	return tlsConfig, nil
+}
+
+// OCSPSource configures where OCSP metrics are collected from.
+type OCSPSource string
+
+const (
+	OCSPSourceOff       OCSPSource = "off"
+	OCSPSourceTLS       OCSPSource = "tls"
+	OCSPSourceResponder OCSPSource = "responder"
+	OCSPSourceBoth      OCSPSource = "both"
+)
+
+func (s *OCSPSource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var v string
+	if err := unmarshal(&v); err != nil {
+		return err
+	}
+	switch OCSPSource(v) {
+	case "", OCSPSourceOff, OCSPSourceTLS, OCSPSourceResponder, OCSPSourceBoth:
+		*s = OCSPSource(v)
+		return nil
+	default:
+		return fmt.Errorf("unsupported OCSP source %s", v)
+	}
+}
+
+// SourceOrDefault returns the configured OCSP source. The zero value preserves
+// the historical behaviour: collect OCSP only from the TLS connection state.
+func (o OCSPProbe) SourceOrDefault() OCSPSource {
+	if o.Source == "" {
+		return OCSPSourceTLS
+	}
+	return o.Source
+}
+
+func (s OCSPSource) UsesTLS() bool {
+	switch s {
+	case "", OCSPSourceTLS, OCSPSourceBoth:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s OCSPSource) UsesResponder() bool {
+	switch s {
+	case OCSPSourceResponder, OCSPSourceBoth:
+		return true
+	default:
+		return false
+	}
+}
+
+// OCSPProbe configures OCSP metric collection for TLS-based probers.
+type OCSPProbe struct {
+	Source       OCSPSource    `yaml:"source,omitempty"`
+	Timeout      time.Duration `yaml:"timeout,omitempty"`
+	ResponderURL URL           `yaml:"responder_url,omitempty"`
 }
 
 // TCPProbe configures a tcp probe

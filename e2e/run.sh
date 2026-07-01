@@ -253,6 +253,33 @@ check_probe_servername() {
     return 1
 }
 
+check_probe_ocsp_responder_revoked() {
+    local target=$1
+    local module=$2
+    local result
+    local errors=""
+
+    result=$(probe "$target" "$module")
+
+    if ! echo "$result" | grep -q 'ssl_probe_success 1'; then
+        errors="${errors}ssl_probe_success != 1; "
+    fi
+    if ! echo "$result" | grep -q '^ssl_ocsp_responder_success 1$'; then
+        errors="${errors}ssl_ocsp_responder_success != 1; "
+    fi
+    if ! echo "$result" | grep -q '^ssl_ocsp_responder_status 1$'; then
+        errors="${errors}ssl_ocsp_responder_status != 1; "
+    fi
+
+    if [ -n "$errors" ]; then
+        echo "Errors: $errors"
+        echo "Full output:"
+        echo "$result"
+        return 1
+    fi
+    return 0
+}
+
 echo "Building ssl_exporter..."
 cd "$PROJECT_DIR"
 go build -o "$EXPORTER_BIN" .
@@ -325,6 +352,11 @@ modules:
     prober: tcp
     tls_config:
       insecure_skip_verify: true
+  https_ocsp_responder:
+    prober: https
+    ocsp:
+      source: responder
+      timeout: 10s
   keystore:
     prober: keystore
     keystore:
@@ -518,6 +550,18 @@ if check_probe_servername "https://127.0.0.1:18443" "https_servername" "example.
 else
     echo "FAIL: server_name override probe failed"
     FAILED=1
+fi
+
+echo -n "Test external revoked OCSP responder (travel.sngb.ru): "
+if curl -sk --connect-timeout 5 --max-time 10 "https://travel.sngb.ru" >/dev/null 2>&1; then
+    if check_probe_ocsp_responder_revoked "travel.sngb.ru:443" "https_ocsp_responder"; then
+        pass "external revoked OCSP responder"
+    else
+        echo "FAIL: external revoked OCSP responder probe failed"
+        FAILED=1
+    fi
+else
+    echo "SKIP: travel.sngb.ru is not reachable"
 fi
 
 echo ""
