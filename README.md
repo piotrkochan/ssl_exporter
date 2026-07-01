@@ -51,7 +51,7 @@ helm repo update
 helm install ssl-exporter ssl-exporter/ssl-exporter
 ```
 
-See [Helm installation and configuration](docs/helm.md).
+See [Helm installation and configuration](charts/ssl-exporter/README.md).
 
 ## Building from source
 
