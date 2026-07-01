@@ -1,0 +1,7 @@
+chart-dirs:
+  - charts
+target-branch: master
+validate-maintainers: true
+validate-yaml: true
+validate-chart-schema: true
+validate-chart-values: true

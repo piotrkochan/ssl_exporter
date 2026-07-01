@@ -1,0 +1,159 @@
+suite: servicemonitor
+templates:
+  - servicemonitor.yaml
+tests:
+  - it: is not created when disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is created when enabled
+    set:
+      serviceMonitor:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ServiceMonitor
+      - equal:
+          path: spec.endpoints[0].honorLabels
+          value: false
+      - equal:
+          path: spec.endpoints[0].honorTimestamps
+          value: true
+
+  - it: does not have tls config when tls disabled
+    set:
+      serviceMonitor:
+        enabled: true
+    asserts:
+      - isNull:
+          path: spec.endpoints[0].scheme
+      - isNull:
+          path: spec.endpoints[0].tlsConfig
+
+  - it: sets https scheme when tls enabled
+    set:
+      serviceMonitor:
+        enabled: true
+      tls:
+        enabled: true
+        secretName: my-tls
+    asserts:
+      - equal:
+          path: spec.endpoints[0].scheme
+          value: https
+      - isNull:
+          path: spec.endpoints[0].tlsConfig
+
+  - it: renders custom tls config
+    set:
+      serviceMonitor:
+        enabled: true
+        tlsConfig:
+          insecureSkipVerify: true
+          serverName: ssl-exporter.monitoring.svc
+      tls:
+        enabled: true
+        secretName: my-tls
+    asserts:
+      - equal:
+          path: spec.endpoints[0].tlsConfig.insecureSkipVerify
+          value: true
+      - equal:
+          path: spec.endpoints[0].tlsConfig.serverName
+          value: ssl-exporter.monitoring.svc
+
+  - it: renders basic auth
+    set:
+      serviceMonitor:
+        enabled: true
+        basicAuth:
+          username:
+            name: scrape-auth
+            key: username
+          password:
+            name: scrape-auth
+            key: password
+    asserts:
+      - equal:
+          path: spec.endpoints[0].basicAuth.username.name
+          value: scrape-auth
+      - equal:
+          path: spec.endpoints[0].basicAuth.password.key
+          value: password
+
+  - it: renders custom labels
+    set:
+      serviceMonitor:
+        enabled: true
+        annotations:
+          prometheus.io/scrape: "true"
+        labels:
+          release: prometheus
+    asserts:
+      - equal:
+          path: metadata.labels.release
+          value: prometheus
+      - equal:
+          path: metadata.annotations["prometheus.io/scrape"]
+          value: "true"
+
+  - it: renders in custom namespace
+    set:
+      serviceMonitor:
+        enabled: true
+        namespace: monitoring
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: monitoring
+
+  - it: renders target labels and scrape limits
+    set:
+      serviceMonitor:
+        enabled: true
+        targetLabels:
+          - app
+        podTargetLabels:
+          - pod-template-hash
+        honorLabels: true
+        honorTimestamps: false
+        proxyUrl: http://proxy:8080
+        sampleLimit: 1000
+        targetLimit: 10
+        labelLimit: 50
+        labelNameLengthLimit: 100
+        labelValueLengthLimit: 200
+    asserts:
+      - contains:
+          path: spec.targetLabels
+          content: app
+      - contains:
+          path: spec.podTargetLabels
+          content: pod-template-hash
+      - equal:
+          path: spec.endpoints[0].honorLabels
+          value: true
+      - equal:
+          path: spec.endpoints[0].honorTimestamps
+          value: false
+      - equal:
+          path: spec.endpoints[0].proxyUrl
+          value: http://proxy:8080
+      - equal:
+          path: spec.endpoints[0].sampleLimit
+          value: 1000
+      - equal:
+          path: spec.endpoints[0].targetLimit
+          value: 10
+      - equal:
+          path: spec.endpoints[0].labelLimit
+          value: 50
+      - equal:
+          path: spec.endpoints[0].labelNameLengthLimit
+          value: 100
+      - equal:
+          path: spec.endpoints[0].labelValueLengthLimit
+          value: 200

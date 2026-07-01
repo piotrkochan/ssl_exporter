@@ -1,0 +1,28 @@
+apiVersion: v2
+name: ssl-exporter
+description: SSL Certificate Exporter for Prometheus
+type: application
+version: 0.1.0
+appVersion: "2.6.1"
+kubeVersion: ">=1.21.0-0"
+home: https://github.com/piotrkochan/ssl_exporter
+icon: https://raw.githubusercontent.com/cncf/artwork/refs/heads/main/projects/prometheus/icon/color/prometheus-icon-color.svg
+sources:
+  - https://github.com/piotrkochan/ssl_exporter
+maintainers:
+  - name: skoef
+    url: https://github.com/skoef
+  - name: piotrkochan
+    url: https://github.com/piotrkochan
+keywords:
+  - ssl
+  - tls
+  - prometheus
+  - exporter
+  - monitoring
+  - certificates
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: Chart Source
+      url: https://github.com/piotrkochan/ssl_exporter/tree/master/charts/ssl-exporter

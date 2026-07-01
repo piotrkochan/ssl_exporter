@@ -1,0 +1,116 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+## Installation
+
+```bash
+helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
+helm repo update
+helm install ssl-exporter ssl-exporter/ssl-exporter
+```
+
+Or install static manifests directly:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
+```
+
+Use the cluster-wide RBAC variant only when ssl_exporter should read TLS certificates from Kubernetes Secrets:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
+```
+
+## Examples
+
+### Basic auth
+
+```yaml
+webConfig:
+  enabled: true
+  data:
+    basic_auth_users:
+      admin: "$2y$10$hashedpassword"
+```
+
+When `serviceMonitor.enabled=true`, configure Prometheus scrape credentials
+separately:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  basicAuth:
+    username:
+      name: scrape-auth
+      key: username
+    password:
+      name: scrape-auth
+      key: password
+```
+
+### Basic auth with an existing Secret
+
+To avoid storing passwords in Helm values, create a Secret separately
+(e.g. via SealedSecrets or ExternalSecrets):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-web-config
+type: Opaque
+stringData:
+  web-config.yaml: |
+    basic_auth_users:
+      admin: "$2y$10$hashedpassword"
+```
+
+Then reference it:
+
+```yaml
+webConfig:
+  enabled: true
+  secretName: my-web-config
+```
+
+### TLS with an existing Secret
+
+```yaml
+tls:
+  enabled: true
+  secretName: my-tls-secret
+```
+
+When scraping with ServiceMonitor and a custom CA or self-signed certificate,
+set `serviceMonitor.tlsConfig` explicitly.
+
+### TLS with cert-manager
+
+```yaml
+tls:
+  enabled: true
+  certManager:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+```
+
+### Kubernetes prober RBAC
+
+The kubernetes prober needs cluster-wide permission to list TLS Secrets. Enable
+RBAC only when this prober is used with in-cluster authentication:
+
+```yaml
+serviceAccount:
+  automountServiceAccountToken: true
+rbac:
+  create: true
+```
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.maintainersSection" . }}

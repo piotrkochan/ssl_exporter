@@ -1,0 +1,12 @@
+{{- if and .Values.config.enabled (not .Values.config.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ssl-exporter.fullname" . }}
+  namespace: {{ include "ssl-exporter.namespace" . }}
+  labels:
+    {{- include "ssl-exporter.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- .Values.config.data | nindent 4 }}
+{{- end }}

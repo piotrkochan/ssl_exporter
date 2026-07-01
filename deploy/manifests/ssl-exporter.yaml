@@ -1,0 +1,143 @@
+# Generated from charts/ssl-exporter. Do not edit by hand.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ssl-exporter
+---
+# Source: ssl-exporter/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ssl-exporter
+  namespace: ssl-exporter
+  labels:
+    app.kubernetes.io/name: ssl-exporter
+    app.kubernetes.io/instance: ssl-exporter
+    app.kubernetes.io/version: "2.6.1"
+automountServiceAccountToken: false
+---
+# Source: ssl-exporter/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssl-exporter
+  namespace: ssl-exporter
+  labels:
+    app.kubernetes.io/name: ssl-exporter
+    app.kubernetes.io/instance: ssl-exporter
+    app.kubernetes.io/version: "2.6.1"
+data:
+  config.yaml: |
+    modules:
+      https:
+        prober: https
+      tcp:
+        prober: tcp
+      file:
+        prober: file
+      kubernetes:
+        prober: kubernetes
+---
+# Source: ssl-exporter/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssl-exporter
+  namespace: ssl-exporter
+  labels:
+    app.kubernetes.io/name: ssl-exporter
+    app.kubernetes.io/instance: ssl-exporter
+    app.kubernetes.io/version: "2.6.1"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9219
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: ssl-exporter
+    app.kubernetes.io/instance: ssl-exporter
+---
+# Source: ssl-exporter/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssl-exporter
+  namespace: ssl-exporter
+  labels:
+    app.kubernetes.io/name: ssl-exporter
+    app.kubernetes.io/instance: ssl-exporter
+    app.kubernetes.io/version: "2.6.1"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ssl-exporter
+      app.kubernetes.io/instance: ssl-exporter
+  template:
+    metadata:
+      annotations:
+        checksum/config: f9d7e6333e11e44611376a80fbeef7c23747fee39c0acb16df2b9bc02babacf4
+      labels:
+        app.kubernetes.io/name: ssl-exporter
+        app.kubernetes.io/instance: ssl-exporter
+    spec:
+      serviceAccountName: ssl-exporter
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: ssl-exporter
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          image: "ghcr.io/piotrkochan/ssl_exporter:2.6.1"
+          imagePullPolicy: IfNotPresent
+          args:
+            - --web.probe-path=/probe
+            - --web.listen-address=:9219
+            - --config.file=/config/config.yaml
+          ports:
+            - name: http
+              containerPort: 9219
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: ssl-exporter

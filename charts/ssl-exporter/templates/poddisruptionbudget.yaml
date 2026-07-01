@@ -1,0 +1,14 @@
+{{- with .Values.podDisruptionBudget }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ssl-exporter.fullname" $ }}
+  namespace: {{ include "ssl-exporter.namespace" $ }}
+  labels:
+    {{- include "ssl-exporter.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "ssl-exporter.selectorLabels" $ | nindent 6 }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
