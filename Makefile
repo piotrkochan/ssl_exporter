@@ -5,6 +5,8 @@ BIN_NAME            ?= ssl_exporter$(shell go env GOEXE)
 DOCKER_IMAGE_NAME   ?= ssl-exporter
 DOCKER_IMAGE_TAG    ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 HELM_DOCS_VERSION   ?= v1.14.2
+MANIFEST_DIR        ?= deploy/manifests
+MANIFEST_NAMESPACE  ?= ssl-exporter
 
 # Race detector is only supported on amd64.
 RACE := $(shell test $$(go env GOARCH) != "amd64" || (echo "-race"))
@@ -79,9 +81,17 @@ helm-test:
 	@echo ">> running helm unit tests"
 	@helm unittest charts/ssl-exporter/
 
+manifests:
+	@echo ">> generating static Kubernetes manifests"
+	@mkdir -p $(MANIFEST_DIR)
+	@printf "# Generated from charts/ssl-exporter. Do not edit by hand.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: $(MANIFEST_NAMESPACE)\n" > $(MANIFEST_DIR)/ssl-exporter.yaml
+	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) >> $(MANIFEST_DIR)/ssl-exporter.yaml
+	@printf "# Generated from charts/ssl-exporter. Do not edit by hand.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: $(MANIFEST_NAMESPACE)\n" > $(MANIFEST_DIR)/ssl-exporter-kubernetes-secrets.yaml
+	@helm template ssl-exporter charts/ssl-exporter --namespace $(MANIFEST_NAMESPACE) --set rbac.create=true --set serviceAccount.automountServiceAccountToken=true >> $(MANIFEST_DIR)/ssl-exporter-kubernetes-secrets.yaml
+
 e2e:
 	@echo ">> running e2e tests"
 	@chmod +x e2e/run.sh
 	@e2e/run.sh
 
-.PHONY: all style test cover format vet build docker snapshot release clean e2e helm-docs helm-test
+.PHONY: all style test cover format vet build docker snapshot release clean e2e helm-docs helm-test manifests

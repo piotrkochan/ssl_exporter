@@ -12,6 +12,18 @@ helm repo update
 helm install ssl-exporter ssl-exporter/ssl-exporter
 ```
 
+Or install static manifests directly:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter.yaml
+```
+
+For the Kubernetes Secrets prober, use the cluster-wide RBAC variant:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/master/deploy/manifests/ssl-exporter-kubernetes-secrets.yaml
+```
+
 ## Examples
 
 ### Basic auth

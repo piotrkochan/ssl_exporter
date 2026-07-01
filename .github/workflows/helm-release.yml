@@ -31,10 +31,11 @@ jobs:
       - name: Helm lint and unit tests
         run: make helm-test
 
-      - name: Verify chart docs are up-to-date
+      - name: Verify generated chart assets are up-to-date
         run: |
           make helm-docs
-          git diff --exit-code charts/ssl-exporter/README.md
+          make manifests
+          git diff --exit-code charts/ssl-exporter/README.md deploy/manifests
 
   release:
     needs: helm-test
