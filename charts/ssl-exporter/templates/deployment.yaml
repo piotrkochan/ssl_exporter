@@ -1,3 +1,5 @@
+{{- include "ssl-exporter.validateTLS" . }}
+{{- $webConfigEnabled := include "ssl-exporter.webConfigEnabled" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,7 +15,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml" ) . | sha256sum }}
-        {{- if and .Values.webConfig.enabled (not .Values.webConfig.existingSecret) }}
+        {{- if and $webConfigEnabled (not .Values.webConfig.existingSecret) }}
         checksum/web-config: {{ include (print $.Template.BasePath "/secret-web-config.yaml" ) . | sha256sum }}
         {{- end }}
       {{- with .Values.podAnnotations }}
@@ -44,7 +46,7 @@ spec:
             {{- if .Values.config.enabled }}
             - --config.file=/config/config.yaml
             {{- end }}
-            {{- if .Values.webConfig.enabled }}
+            {{- if $webConfigEnabled }}
             - --web.config.file=/etc/web-config/web-config.yaml
             {{- end }}
             {{- range .Values.extraArgs }}
@@ -59,19 +61,19 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            {{- include "ssl-exporter.probe" (dict "probe" .Values.livenessProbe "tlsEnabled" .Values.tls.enabled) | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            {{- include "ssl-exporter.probe" (dict "probe" .Values.readinessProbe "tlsEnabled" .Values.tls.enabled) | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if or .Values.config.enabled .Values.webConfig.enabled .Values.tls.enabled .Values.extraVolumeMounts }}
+          {{- if or .Values.config.enabled $webConfigEnabled .Values.tls.enabled .Values.extraVolumeMounts }}
           volumeMounts:
             {{- if .Values.config.enabled }}
             - name: config
               mountPath: /config
               readOnly: true
             {{- end }}
-            {{- if .Values.webConfig.enabled }}
+            {{- if $webConfigEnabled }}
             - name: web-config
               mountPath: /etc/web-config
               readOnly: true
@@ -97,14 +99,14 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.config.enabled .Values.webConfig.enabled .Values.tls.enabled .Values.extraVolumes }}
+      {{- if or .Values.config.enabled $webConfigEnabled .Values.tls.enabled .Values.extraVolumes }}
       volumes:
         {{- if .Values.config.enabled }}
         - name: config
           configMap:
             name: {{ .Values.config.existingConfigMap | default (include "ssl-exporter.fullname" .) }}
         {{- end }}
-        {{- if .Values.webConfig.enabled }}
+        {{- if $webConfigEnabled }}
         - name: web-config
           secret:
             secretName: {{ include "ssl-exporter.webConfigSecretName" . }}

@@ -3,13 +3,12 @@ package prober
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,7 +57,7 @@ func ProbeKubeconfig(ctx context.Context, logger *slog.Logger, target string, mo
 func ParseKubeConfig(file string) (*KubeConfig, error) {
 	k := &KubeConfig{}
 
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

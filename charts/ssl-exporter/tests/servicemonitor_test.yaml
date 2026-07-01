@@ -38,9 +38,45 @@ tests:
       - equal:
           path: spec.endpoints[0].scheme
           value: https
+      - isNull:
+          path: spec.endpoints[0].tlsConfig
+
+  - it: renders custom tls config
+    set:
+      serviceMonitor:
+        enabled: true
+        tlsConfig:
+          insecureSkipVerify: true
+          serverName: ssl-exporter.monitoring.svc
+      tls:
+        enabled: true
+        existingSecret: my-tls
+    asserts:
       - equal:
           path: spec.endpoints[0].tlsConfig.insecureSkipVerify
           value: true
+      - equal:
+          path: spec.endpoints[0].tlsConfig.serverName
+          value: ssl-exporter.monitoring.svc
+
+  - it: renders basic auth
+    set:
+      serviceMonitor:
+        enabled: true
+        basicAuth:
+          username:
+            name: scrape-auth
+            key: username
+          password:
+            name: scrape-auth
+            key: password
+    asserts:
+      - equal:
+          path: spec.endpoints[0].basicAuth.username.name
+          value: scrape-auth
+      - equal:
+          path: spec.endpoints[0].basicAuth.password.key
+          value: password
 
   - it: renders custom labels
     set:

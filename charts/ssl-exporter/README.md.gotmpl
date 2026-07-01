@@ -24,6 +24,21 @@ webConfig:
       admin: "$2y$10$hashedpassword"
 ```
 
+When `serviceMonitor.enabled=true`, configure Prometheus scrape credentials
+separately:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  basicAuth:
+    username:
+      name: scrape-auth
+      key: username
+    password:
+      name: scrape-auth
+      key: password
+```
+
 ### Basic auth with an existing Secret
 
 To avoid storing passwords in Helm values, create a Secret separately
@@ -55,9 +70,10 @@ webConfig:
 tls:
   enabled: true
   existingSecret: my-tls-secret
-webConfig:
-  enabled: true  # auto-generates web-config.yaml with tls_server_config
 ```
+
+When scraping with ServiceMonitor and a custom CA or self-signed certificate,
+set `serviceMonitor.tlsConfig` explicitly.
 
 ### TLS with cert-manager
 
@@ -69,8 +85,18 @@ tls:
     issuerRef:
       name: letsencrypt-prod
       kind: ClusterIssuer
-webConfig:
-  enabled: true
+```
+
+### Kubernetes prober RBAC
+
+The kubernetes prober needs cluster-wide permission to list TLS Secrets. Enable
+RBAC only when this prober is used with in-cluster authentication:
+
+```yaml
+serviceAccount:
+  automountServiceAccountToken: true
+rbac:
+  create: true
 ```
 
 {{ template "chart.valuesSection" . }}

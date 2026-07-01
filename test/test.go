@@ -7,10 +7,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
 	"time"
+
+	"github.com/pavlo-v-chernykh/keystore-go/v4"
 )
 
 // GenerateTestCertificate generates a test certificate with the given expiry date
@@ -27,6 +29,21 @@ func GenerateTestCertificate(expiry time.Time) ([]byte, []byte) {
 	_, pemCert := GenerateSelfSignedCertificateWithPrivateKey(cert, privateKey)
 
 	return pemCert, pemKey
+}
+
+// GenerateTestJKSWithCertificate generates a java keystore contains multiple certificate
+func GenerateTestJKSWithCertificate(certs []*x509.Certificate) keystore.KeyStore {
+	jks := keystore.New()
+	for idx, cert := range certs {
+		jks.SetTrustedCertificateEntry(fmt.Sprintf("cert-%d", idx), keystore.TrustedCertificateEntry{
+			CreationTime: time.Now(),
+			Certificate: keystore.Certificate{
+				Type:    "x509",
+				Content: cert.Raw,
+			},
+		})
+	}
+	return jks
 }
 
 // GenerateSignedCertificate generates a certificate that is signed
@@ -90,7 +107,7 @@ func GenerateCertificateTemplate(expiry time.Time) *x509.Certificate {
 
 // WriteFile writes some content to a temporary file
 func WriteFile(filename string, contents []byte) (string, error) {
-	tmpFile, err := ioutil.TempFile("", filename)
+	tmpFile, err := os.CreateTemp("", filename)
 	if err != nil {
 		return tmpFile.Name(), err
 	}

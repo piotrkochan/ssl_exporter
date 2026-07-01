@@ -9,16 +9,17 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
-	"github.com/piotrkochan/ssl_exporter/v2/config"
 )
 
 var userAgent = fmt.Sprintf("SSLExporter/%s", version.Version)
 
 // ProbeHTTPS performs a https probe
 func ProbeHTTPS(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
-	tlsConfig, err := newTLSConfig("", registry, &module.TLSConfig)
+	ocspSource := module.OCSP.SourceOrDefault()
+	tlsConfig, err := newTLSConfig("", registry, &module.TLSConfig, ocspSource)
 	if err != nil {
 		return err
 	}
@@ -74,6 +75,10 @@ func ProbeHTTPS(ctx context.Context, logger *slog.Logger, target string, module 
 	// Check if the response from the target is encrypted
 	if resp.TLS == nil {
 		return fmt.Errorf("The response from %s is unencrypted", targetURL.String())
+	}
+
+	if ocspSource.UsesResponder() {
+		collectOCSPResponderMetrics(ctx, *resp.TLS, module.OCSP, registry)
 	}
 
 	return nil

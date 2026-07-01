@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,7 +64,7 @@ func TestProbeFileGlob(t *testing.T) {
 
 // TestProbeFileGlobDoubleStar tests matching a file with a ** glob
 func TestProbeFileGlobDoubleStar(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "testdir")
+	tmpDir, err := os.MkdirTemp("", "testdir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +92,13 @@ func TestProbeFileGlobDoubleStar(t *testing.T) {
 
 // TestProbeFileGlobDoubleStarMultiple tests matching multiple files with a ** glob
 func TestProbeFileGlobDoubleStarMultiple(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "testdir")
+	tmpDir, err := os.MkdirTemp("", "testdir")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	tmpDir1, err := ioutil.TempDir(tmpDir, "testdir")
+	tmpDir1, err := os.MkdirTemp(tmpDir, "testdir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +107,7 @@ func TestProbeFileGlobDoubleStarMultiple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tmpDir2, err := ioutil.TempDir(tmpDir, "testdir")
+	tmpDir2, err := os.MkdirTemp(tmpDir, "testdir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +141,7 @@ func createTestFile(dir, filename string) (*x509.Certificate, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	tmpFile, err := ioutil.TempFile(dir, filename)
+	tmpFile, err := os.CreateTemp(dir, filename)
 	if err != nil {
 		return nil, tmpFile.Name(), err
 	}
@@ -167,7 +166,7 @@ func checkFileMetrics(cert *x509.Certificate, certFile string, registry *prometh
 		ips = ips + ip.String() + ","
 	}
 	expectedResults := []*registryResult{
-		&registryResult{
+		{
 			Name: "ssl_file_cert_not_after",
 			LabelValues: map[string]string{
 				"file":      certFile,
@@ -181,7 +180,7 @@ func checkFileMetrics(cert *x509.Certificate, certFile string, registry *prometh
 			},
 			Value: float64(cert.NotAfter.Unix()),
 		},
-		&registryResult{
+		{
 			Name: "ssl_file_cert_not_before",
 			LabelValues: map[string]string{
 				"file":      certFile,

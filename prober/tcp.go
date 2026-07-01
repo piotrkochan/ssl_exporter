@@ -11,13 +11,14 @@ import (
 	"net"
 	"regexp"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ProbeTCP performs a tcp probe
 func ProbeTCP(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
-	tlsConfig, err := newTLSConfig(target, registry, &module.TLSConfig)
+	ocspSource := module.OCSP.SourceOrDefault()
+	tlsConfig, err := newTLSConfig(target, registry, &module.TLSConfig, ocspSource)
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,15 @@ func ProbeTCP(ctx context.Context, logger *slog.Logger, target string, module co
 	tlsConn := tls.Client(conn, tlsConfig)
 	defer tlsConn.Close()
 
-	return tlsConn.Handshake()
+	if err := tlsConn.Handshake(); err != nil {
+		return err
+	}
+
+	if ocspSource.UsesResponder() {
+		collectOCSPResponderMetrics(ctx, tlsConn.ConnectionState(), module.OCSP, registry)
+	}
+
+	return nil
 }
 
 type queryResponse struct {
@@ -67,56 +76,56 @@ var (
 	// See openssl s_client for more examples:
 	//  https://github.com/openssl/openssl/blob/openssl-3.0.0-alpha3/apps/s_client.c#L2229-L2728
 	startTLSqueryResponses = map[string][]queryResponse{
-		"smtp": []queryResponse{
-			queryResponse{
+		"smtp": {
+			{
 				expect: "^220 ",
 			},
-			queryResponse{
+			{
 				send: "EHLO prober",
 			},
-			queryResponse{
+			{
 				expectArray: []string{"^250(-| )STARTTLS", "^250 "},
 			},
-			queryResponse{
+			{
 				send: "STARTTLS",
 			},
-			queryResponse{
+			{
 				expect: "^220 ",
 			},
 		},
-		"ftp": []queryResponse{
-			queryResponse{
+		"ftp": {
+			{
 				expect: "^220",
 			},
-			queryResponse{
+			{
 				send: "AUTH TLS",
 			},
-			queryResponse{
+			{
 				expect: "^234",
 			},
 		},
-		"imap": []queryResponse{
-			queryResponse{
+		"imap": {
+			{
 				expect: "OK",
 			},
-			queryResponse{
+			{
 				send: ". CAPABILITY",
 			},
-			queryResponse{
+			{
 				expect: "STARTTLS",
 			},
-			queryResponse{
+			{
 				expect: "OK",
 			},
-			queryResponse{
+			{
 				send: ". STARTTLS",
 			},
-			queryResponse{
+			{
 				expect: "OK",
 			},
 		},
-		"mysql": []queryResponse{
-			queryResponse{
+		"mysql": {
+			{
 				expectFn: func(buffer []byte, n int) error {
 					if n == 0 {
 						return fmt.Errorf("read 0 bytes from MySQL server")
@@ -165,7 +174,7 @@ var (
 					return nil
 				},
 			},
-			queryResponse{
+			{
 				sendBytes: []byte{
 					/* payload_length,   sequence_id */
 					0x20, 0x00, 0x00, 0x01,
@@ -183,22 +192,22 @@ var (
 				},
 			},
 		},
-		"postgres": []queryResponse{
-			queryResponse{
+		"postgres": {
+			{
 				sendBytes: []byte{0x00, 0x00, 0x00, 0x08, 0x04, 0xd2, 0x16, 0x2f},
 			},
-			queryResponse{
+			{
 				expectBytes: []byte{0x53},
 			},
 		},
-		"pop3": []queryResponse{
-			queryResponse{
+		"pop3": {
+			{
 				expect: "OK",
 			},
-			queryResponse{
+			{
 				send: "STLS",
 			},
-			queryResponse{
+			{
 				expect: "OK",
 			},
 		},

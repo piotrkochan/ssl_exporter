@@ -2,7 +2,7 @@
 
 SSL Certificate Exporter for Prometheus
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.1](https://img.shields.io/badge/AppVersion-2.5.1-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.6.1](https://img.shields.io/badge/AppVersion-2.6.1-informational?style=flat-square)
 
 ## Installation
 
@@ -22,6 +22,21 @@ webConfig:
   data:
     basic_auth_users:
       admin: "$2y$10$hashedpassword"
+```
+
+When `serviceMonitor.enabled=true`, configure Prometheus scrape credentials
+separately:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  basicAuth:
+    username:
+      name: scrape-auth
+      key: username
+    password:
+      name: scrape-auth
+      key: password
 ```
 
 ### Basic auth with an existing Secret
@@ -55,9 +70,10 @@ webConfig:
 tls:
   enabled: true
   existingSecret: my-tls-secret
-webConfig:
-  enabled: true  # auto-generates web-config.yaml with tls_server_config
 ```
+
+When scraping with ServiceMonitor and a custom CA or self-signed certificate,
+set `serviceMonitor.tlsConfig` explicitly.
 
 ### TLS with cert-manager
 
@@ -69,8 +85,18 @@ tls:
     issuerRef:
       name: letsencrypt-prod
       kind: ClusterIssuer
-webConfig:
-  enabled: true
+```
+
+### Kubernetes prober RBAC
+
+The kubernetes prober needs cluster-wide permission to list TLS Secrets. Enable
+RBAC only when this prober is used with in-cluster authentication:
+
+```yaml
+serviceAccount:
+  automountServiceAccountToken: true
+rbac:
+  create: true
 ```
 
 ## Values
@@ -87,7 +113,7 @@ webConfig:
 | extraVolumes | list | `[]` | Extra volumes for the pod |
 | fullnameOverride | string | `""` | Override the full release name |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.repository | string | `"piotrkochan/ssl-exporter"` | Image repository |
+| image.repository | string | `"ghcr.io/piotrkochan/ssl_exporter"` | Image repository |
 | image.tag | string | `""` | Image tag (defaults to chart appVersion) |
 | imagePullSecrets | list | `[]` | Image pull secrets |
 | livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":5,"periodSeconds":10,"timeoutSeconds":5}` | Liveness probe configuration |
@@ -96,6 +122,7 @@ webConfig:
 | podAnnotations | object | `{}` | Additional pod annotations |
 | podLabels | object | `{}` | Additional pod labels |
 | podSecurityContext | object | `{"fsGroup":1000}` | Pod security context |
+| rbac.create | bool | `false` | Create ClusterRole and ClusterRoleBinding for the kubernetes prober. Also set serviceAccount.automountServiceAccountToken=true when using in-cluster auth. |
 | readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":5,"periodSeconds":10,"timeoutSeconds":5}` | Readiness probe configuration |
 | replicaCount | int | `1` | Number of replicas |
 | resources | object | `{}` | Resource requests and limits |
@@ -106,19 +133,21 @@ webConfig:
 | serviceAccount.automountServiceAccountToken | bool | `false` | Automount the service account token |
 | serviceAccount.create | bool | `true` | Create a service account |
 | serviceAccount.name | string | `""` | Service account name (generated if not set and create is true) |
+| serviceMonitor.basicAuth | object | `{}` | Basic auth config for scraping /metrics when webConfig enables basic_auth_users |
 | serviceMonitor.enabled | bool | `false` | Enable ServiceMonitor |
 | serviceMonitor.interval | string | `"30s"` | Scrape interval |
 | serviceMonitor.labels | object | `{}` | Additional labels for ServiceMonitor selection |
 | serviceMonitor.metricRelabelings | list | `[]` | Metric relabeling rules |
 | serviceMonitor.relabelings | list | `[]` | Target relabeling rules |
 | serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout |
+| serviceMonitor.tlsConfig | object | `{}` | TLS config for scraping the exporter when tls.enabled=true |
 | tls.certManager.dnsNames | list | `[]` | DNS names for the certificate (defaults to service FQDN) |
 | tls.certManager.duration | string | `"8760h"` | Certificate duration |
 | tls.certManager.enabled | bool | `false` | Create a cert-manager Certificate resource to provision the TLS Secret |
 | tls.certManager.issuerRef.kind | string | `"ClusterIssuer"` | Issuer kind (Issuer or ClusterIssuer) |
 | tls.certManager.issuerRef.name | string | `""` | Issuer name |
 | tls.certManager.renewBefore | string | `"720h"` | Renew before expiry |
-| tls.enabled | bool | `false` | Enable TLS (mounts a TLS Secret into the container) |
+| tls.enabled | bool | `false` | Enable TLS for the exporter's own HTTP endpoints. Requires existingSecret or certManager.enabled=true. |
 | tls.existingSecret | string | `""` | Existing `kubernetes.io/tls` Secret name. If set, certManager section is ignored. |
 | tls.mountPath | string | `"/etc/tls"` | Mount path for TLS cert/key inside the container |
 | tolerations | list | `[]` | Tolerations |

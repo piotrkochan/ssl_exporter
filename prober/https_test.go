@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -383,7 +383,7 @@ func TestProbeHTTPSExpired(t *testing.T) {
 // TestProbeHTTPSExpiredInsecure tests that the probe succeeds with an expired server cert
 // when skipping cert verification
 func TestProbeHTTPSExpiredInsecure(t *testing.T) {
-	server, certPEM, _, caFile, teardown, err := test.SetupHTTPSServer()
+	server, _, _, caFile, teardown, err := test.SetupHTTPSServer()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,15 +567,15 @@ func TestProbeHTTPSVerifiedChains(t *testing.T) {
 	serverCert, serverCertPem, serverKey := test.GenerateSignedCertificate(serverCertTmpl, olderRootCert, rootPrivateKey)
 
 	verifiedChains := [][]*x509.Certificate{
-		[]*x509.Certificate{
+		{
 			serverCert,
 			rootCert,
 		},
-		[]*x509.Certificate{
+		{
 			serverCert,
 			olderRootCert,
 		},
-		[]*x509.Certificate{
+		{
 			serverCert,
 			oldestRootCert,
 		},

@@ -1,0 +1,62 @@
+groups:
+  - name: ssl_exporter
+    rules:
+      - alert: SSLProbeFailed
+        expr: ssl_probe_success == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SSL probe failed for {{ $labels.instance }}"
+          description: "ssl_exporter has reported ssl_probe_success=0 for {{ $labels.instance }} for more than 5 minutes."
+
+      - alert: SSLExporterDown
+        expr: up{job="ssl"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ssl_exporter is down ({{ $labels.instance }})"
+          description: "Prometheus cannot scrape ssl_exporter at {{ $labels.instance }} (up=0) for more than 5 minutes."
+
+      - alert: SSLCertExpired
+        expr: |
+          ({__name__=~"ssl_.*cert_not_after", __name__!="ssl_verified_cert_not_after"} - time()) <= 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Certificate expired on {{ $labels.instance }}"
+          description: "Certificate cn={{ $labels.cn }} (serial {{ $labels.serial_no }}, issuer {{ $labels.issuer_cn }}) for {{ $labels.instance }} has expired."
+
+      - alert: SSLCertExpiringSoon
+        expr: |
+          (
+            ({__name__=~"ssl_.*cert_not_after", __name__!="ssl_verified_cert_not_after"} - time()) < 86400 * 7
+            and
+            ({__name__=~"ssl_.*cert_not_after", __name__!="ssl_verified_cert_not_after"} - time()) > 0
+          )
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Certificate expiring soon on {{ $labels.instance }}"
+          description: "Certificate cn={{ $labels.cn }} (serial {{ $labels.serial_no }}) for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}."
+
+      - alert: SSLCertRevoked
+        expr: ssl_ocsp_response_status == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Certificate revoked on {{ $labels.instance }}"
+          description: "The OCSP response for {{ $labels.instance }} reports the certificate as revoked (status=1)."
+
+      - alert: SSLDeprecatedTLSVersion
+        expr: ssl_tls_version_info{version=~"TLS 1.0|TLS 1.1"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deprecated TLS version on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} negotiated {{ $labels.version }}, which is deprecated."

@@ -92,6 +92,29 @@ tests:
             secret:
               secretName: my-tls
 
+  - it: enables web-config and https probes when tls enabled
+    template: deployment.yaml
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-tls
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --web.config.file=/etc/web-config/web-config.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: web-config
+            mountPath: /etc/web-config
+            readOnly: true
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.scheme
+          value: HTTPS
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.scheme
+          value: HTTPS
+
   - it: uses generated tls secret name when no existingSecret
     template: deployment.yaml
     set:

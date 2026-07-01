@@ -1,0 +1,227 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        },
+        "tag": {
+          "type": "string"
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "automountServiceAccountToken": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "interval": {
+          "type": "string"
+        },
+        "scrapeTimeout": {
+          "type": "string"
+        },
+        "tlsConfig": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "basicAuth": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "webConfig": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "mountPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "certManager": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "issuerRef": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["Issuer", "ClusterIssuer"]
+                }
+              }
+            },
+            "duration": {
+              "type": "string"
+            },
+            "renewBefore": {
+              "type": "string"
+            },
+            "dnsNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "existingConfigMap": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["tls"],
+        "properties": {
+          "tls": {
+            "required": ["enabled"],
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tls": {
+            "anyOf": [
+              {
+                "properties": {
+                  "existingSecret": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["existingSecret"]
+              },
+              {
+                "properties": {
+                  "certManager": {
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      },
+                      "issuerRef": {
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["name"]
+                      }
+                    },
+                    "required": ["enabled", "issuerRef"]
+                  }
+                },
+                "required": ["certManager"]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

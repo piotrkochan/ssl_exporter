@@ -5,13 +5,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
 	v1 "k8s.io/api/core/v1"
@@ -21,8 +22,16 @@ const (
 	namespace = "ssl"
 )
 
-func collectConnectionStateMetrics(state tls.ConnectionState, registry *prometheus.Registry) error {
+func collectConnectionStateMetrics(state tls.ConnectionState, registry *prometheus.Registry, ocspSource config.OCSPSource) error {
 	if err := collectTLSVersionMetrics(state.Version, registry); err != nil {
+		return err
+	}
+
+	if err := collectCipherMetrics(state.CipherSuite, registry); err != nil {
+		return err
+	}
+
+	if err := collectKeyExchangeMetrics(state.CurveID, registry); err != nil {
 		return err
 	}
 
@@ -34,7 +43,53 @@ func collectConnectionStateMetrics(state tls.ConnectionState, registry *promethe
 		return err
 	}
 
-	return collectOCSPMetrics(state.OCSPResponse, registry)
+	if ocspSource.UsesTLS() {
+		return collectOCSPMetrics(state.OCSPResponse, registry)
+	}
+
+	return nil
+}
+
+func collectKeyExchangeMetrics(curveID tls.CurveID, registry *prometheus.Registry) error {
+	g := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: prometheus.BuildFQName(namespace, "", "tls_key_exchange"),
+			Help: "The key exchange mechanism used for the TLS connection",
+		},
+		[]string{"key_exchange", "post_quantum"},
+	)
+	registry.MustRegister(g)
+	pq := "false"
+	switch curveID {
+	case tls.X25519MLKEM768, tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024:
+		pq = "true"
+	}
+	curveName := curveID.String()
+	if curveID == 0 {
+		curveName = "RSA"
+	}
+	g.WithLabelValues(curveName, pq).Set(1)
+	return nil
+}
+
+func collectCipherMetrics(cipherSuite uint16, registry *prometheus.Registry) error {
+	g := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: prometheus.BuildFQName(namespace, "", "tls_cipher_suite"),
+			Help: "The cipher suite negotiated for the TLS connection",
+		},
+		[]string{"cipher_suite", "insecure"},
+	)
+	registry.MustRegister(g)
+	insecure := "false"
+	for _, s := range tls.InsecureCipherSuites() {
+		if s.ID == cipherSuite {
+			insecure = "true"
+			break
+		}
+	}
+	g.WithLabelValues(tls.CipherSuiteName(cipherSuite), insecure).Set(1)
+	return nil
 }
 
 func collectTLSVersionMetrics(version uint16, registry *prometheus.Registry) error {
@@ -251,7 +306,7 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 	registry.MustRegister(fileNotAfter, fileNotBefore)
 
 	for _, f := range files {
-		data, err := ioutil.ReadFile(f)
+		data, err := os.ReadFile(f)
 		if err != nil {
 			logger.Debug(fmt.Sprintf("Error reading file %s: %s", f, err))
 			continue
@@ -270,6 +325,62 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 
 			if !cert.NotBefore.IsZero() {
 				fileNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
+			}
+		}
+	}
+
+	if len(totalCerts) == 0 {
+		return fmt.Errorf("No certificates found")
+	}
+
+	return nil
+}
+
+func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prometheus.Registry, password string) error {
+	var (
+		totalCerts       []*x509.Certificate
+		keystoreNotAfter = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_after"),
+				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
+			},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+		keystoreNotBefore = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_before"),
+				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a Java KeyStore (JKS) or PKCS12 file",
+			},
+			[]string{"file", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+		)
+	)
+	registry.MustRegister(keystoreNotAfter, keystoreNotBefore)
+
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("Error reading file %s: %s", f, err))
+			continue
+		}
+		certs, err := readKeyStore(data, password)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("Error loading keystore file %s: %s", f, err))
+			continue
+		}
+		// A single keystore can hold the same certificate under several aliases
+		// (or as both a trusted entry and part of a key entry's chain), which
+		// would otherwise collide on identical metric labels.
+		certs = uniq(certs)
+		totalCerts = append(totalCerts, certs...)
+		for _, cert := range certs {
+			labels := append([]string{f}, labelValues(cert)...)
+
+			if !cert.NotAfter.IsZero() {
+				keystoreNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))
+			}
+
+			if !cert.NotBefore.IsZero() {
+				keystoreNotBefore.WithLabelValues(labels...).Set(float64(cert.NotBefore.Unix()))
 			}
 		}
 	}
@@ -362,7 +473,7 @@ func collectKubeconfigMetrics(logger *slog.Logger, kubeconfig KubeConfig, regist
 				return err
 			}
 		} else if c.Cluster.CertificateAuthority != "" {
-			data, err = ioutil.ReadFile(c.Cluster.CertificateAuthority)
+			data, err = os.ReadFile(c.Cluster.CertificateAuthority)
 			if err != nil {
 				logger.Debug(fmt.Sprintf("Error reading file %s: %s", c.Cluster.CertificateAuthority, err))
 				return err
@@ -398,7 +509,7 @@ func collectKubeconfigMetrics(logger *slog.Logger, kubeconfig KubeConfig, regist
 				return err
 			}
 		} else if u.User.ClientCertificate != "" {
-			data, err = ioutil.ReadFile(u.User.ClientCertificate)
+			data, err = os.ReadFile(u.User.ClientCertificate)
 			if err != nil {
 				logger.Debug(fmt.Sprintf("Error reading file %s: %s", u.User.ClientCertificate, err))
 				return err

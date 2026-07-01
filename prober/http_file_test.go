@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestProbeHTTPFile(t *testing.T) {

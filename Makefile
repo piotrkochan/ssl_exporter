@@ -4,6 +4,7 @@ BIN_DIR             ?= $(shell pwd)/bin
 BIN_NAME            ?= ssl_exporter$(shell go env GOEXE)
 DOCKER_IMAGE_NAME   ?= ssl-exporter
 DOCKER_IMAGE_TAG    ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
+HELM_DOCS_VERSION   ?= v1.14.2
 
 # Race detector is only supported on amd64.
 RACE := $(shell test $$(go env GOARCH) != "amd64" || (echo "-race"))
@@ -23,9 +24,13 @@ test:
 	@echo ">> running tests"
 	go test -short -v $(RACE) ./...
 
+cover:
+	@echo ">> running tests with coverage"
+	go test -short $(RACE) -coverprofile=coverage.txt -covermode=atomic ./...
+
 format:
 	@echo ">> formatting code"
-	@go fmt ./...
+	@gofmt -s -w .
 
 vet:
 	@echo ">> vetting code"
@@ -47,14 +52,14 @@ docker:
 	@docker build -t "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" -f Dockerfile.local .
 
 $(GOPATH)/bin/goreleaser:
-	@go install github.com/goreleaser/goreleaser@v1.2.2
+	@go install github.com/goreleaser/goreleaser/v2@v2.16.0
 
 snapshot: $(GOPATH)/bin/goreleaser
 	@echo ">> building snapshot"
-	@$(GOPATH)/bin/goreleaser --snapshot --skip-sign --skip-validate --skip-publish --rm-dist
+	@$(GOPATH)/bin/goreleaser release --snapshot --clean --skip=sign,validate,publish
 
 release: $(GOPATH)/bin/goreleaser
-	@$(GOPATH)/bin/goreleaser release
+	@$(GOPATH)/bin/goreleaser release --clean
 
 clean:
 	@echo ">> removing build artifacts"
@@ -62,7 +67,7 @@ clean:
 	@rm -Rf $(BIN_NAME)
 
 $(GOPATH)/bin/helm-docs:
-	@go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+	@go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 helm-docs: $(GOPATH)/bin/helm-docs
 	@echo ">> generating helm chart docs"
@@ -79,4 +84,4 @@ e2e:
 	@chmod +x e2e/run.sh
 	@e2e/run.sh
 
-.PHONY: all style test format vet build docker snapshot release clean e2e helm-docs helm-test
+.PHONY: all style test cover format vet build docker snapshot release clean e2e helm-docs helm-test

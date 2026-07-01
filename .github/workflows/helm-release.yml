@@ -12,15 +12,40 @@ permissions:
   pages: write
 
 jobs:
-  release:
+  helm-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26'
+
+      - name: Set up Helm
+        uses: Azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
+
+      - name: Install helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3
+
+      - name: Helm lint and unit tests
+        run: make helm-test
+
+      - name: Verify chart docs are up-to-date
+        run: |
+          make helm-docs
+          git diff --exit-code charts/ssl-exporter/README.md
+
+  release:
+    needs: helm-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: Azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
 
       - name: Configure Git
         run: |
@@ -28,6 +53,6 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
+        uses: helm/chart-releaser-action@a0d2dc62c5e491af8ef6ba64a2e02bcf3fb33aa1 # v1.7.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

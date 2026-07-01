@@ -51,9 +51,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
-*/}}
-{{/*
 Name of the TLS Secret
 */}}
 {{- define "ssl-exporter.tlsSecretName" -}}
@@ -65,6 +62,15 @@ Name of the TLS Secret
 {{- end }}
 
 {{/*
+Whether web-config.yaml should be mounted and passed to ssl_exporter.
+*/}}
+{{- define "ssl-exporter.webConfigEnabled" -}}
+{{- if or .Values.webConfig.enabled .Values.tls.enabled -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
 Name of the web-config Secret
 */}}
 {{- define "ssl-exporter.webConfigSecretName" -}}
@@ -73,6 +79,29 @@ Name of the web-config Secret
 {{- else }}
 {{- printf "%s-web-config" (include "ssl-exporter.fullname" .) }}
 {{- end }}
+{{- end }}
+
+{{/*
+Validate TLS values that cannot produce a working deployment.
+*/}}
+{{- define "ssl-exporter.validateTLS" -}}
+{{- if and .Values.tls.enabled (not .Values.tls.existingSecret) (not .Values.tls.certManager.enabled) -}}
+{{- fail "tls.enabled requires tls.existingSecret or tls.certManager.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.tls.enabled .Values.tls.certManager.enabled (not .Values.tls.existingSecret) (not .Values.tls.certManager.issuerRef.name) -}}
+{{- fail "tls.certManager.issuerRef.name is required when tls.certManager.enabled=true" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Render a probe and switch HTTP probes to HTTPS when exporter TLS is enabled.
+*/}}
+{{- define "ssl-exporter.probe" -}}
+{{- $probe := deepCopy .probe -}}
+{{- if and .tlsEnabled (hasKey $probe "httpGet") -}}
+{{- $_ := set $probe.httpGet "scheme" "HTTPS" -}}
+{{- end -}}
+{{- toYaml $probe -}}
 {{- end }}
 
 {{/*

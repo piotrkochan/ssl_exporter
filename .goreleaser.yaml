@@ -1,3 +1,4 @@
+version: 2
 dist: bin
 builds:
   - binary: ssl_exporter
@@ -24,6 +25,10 @@ builds:
 changelog:
   use: git
   sort: asc
+  filters:
+    exclude:
+      - '(?i)\[skip changelog\]'
+      - '^Merge '
   groups:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
@@ -83,6 +88,7 @@ docker_manifests:
       - "{{.Env.APP_DOCKER_IMAGE_NAME}}:{{.Version}}-amd64"
       - "{{.Env.APP_DOCKER_IMAGE_NAME}}:{{.Version}}-arm64"
   - name_template: "{{.Env.APP_DOCKER_IMAGE_NAME}}:latest"
+    skip_push: "auto"
     image_templates:
       - "{{.Env.APP_DOCKER_IMAGE_NAME}}:{{.Version}}-amd64"
       - "{{.Env.APP_DOCKER_IMAGE_NAME}}:{{.Version}}-arm64"

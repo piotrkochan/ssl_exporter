@@ -19,8 +19,14 @@ spec:
       path: /metrics
       {{- if .Values.tls.enabled }}
       scheme: https
+      {{- end }}
+      {{- with .Values.serviceMonitor.tlsConfig }}
       tlsConfig:
-        insecureSkipVerify: true
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.basicAuth }}
+      basicAuth:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.serviceMonitor.metricRelabelings }}
       metricRelabelings:

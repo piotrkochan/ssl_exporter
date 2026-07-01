@@ -2,6 +2,14 @@ default_module: https
 modules:
   https:
     prober: https
+  https_ocsp_responder:
+    prober: https
+    ocsp:
+      # source: "tls" keeps the default TLS stapling behaviour.
+      # source: "responder" sends an active request to the OCSP responder URL
+      # from the certificate. "both" collects both metric sets.
+      source: responder
+      timeout: 5s
   https_insecure:
     prober: https
     tls_config:
@@ -19,6 +27,11 @@ modules:
     timeout: 3s
   tcp:
     prober: tcp
+  tcp_ocsp_responder:
+    prober: tcp
+    ocsp:
+      source: responder
+      timeout: 5s
   tcp_servername:
     prober: tcp
     tls_config:
@@ -44,6 +57,13 @@ modules:
   file_ca_certificates:
     prober: file
     target: /etc/ssl/certs/ca-certificates.crt
+  keystore:
+    prober: keystore
+    keystore:
+      # Reads JKS and PKCS12 keystores (autodetected). Provide the password
+      # inline or, preferably, via password_file.
+      password: changeit
+      # password_file: /etc/ssl_exporter/keystore_password
   http_file:
     prober: http_file
   http_file_proxy:
@@ -58,3 +78,14 @@ modules:
       kubeconfig: /root/.kube/config
   kubeconfig:
     prober: kubeconfig
+  tls_cipher:
+    prober: tls_cipher
+    tls_cipher:
+      # cipher_set: "insecure" (default) or "all"
+      cipher_set: all
+      # key_exchange_set: "pqc" (default) or "all"
+      key_exchange_set: pqc
+      # cache_ttl: 1h (default)
+      cache_ttl: 5m
+      # cache_mode: "hostname" (default), "ip" (deduplicate shared IPs), "sni" (ip + SNI for CDNs)
+      # cache_mode: ip
