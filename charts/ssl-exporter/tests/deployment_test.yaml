@@ -17,7 +17,7 @@ tests:
           value: RollingUpdate
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/piotrkochan/ssl_exporter:2.6.1
+          value: ghcr.io/piotrkochan/ssl_exporter:v2.7.0
       - equal:
           path: spec.template.spec.containers[0].args
           value:

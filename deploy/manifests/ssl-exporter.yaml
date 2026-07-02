@@ -13,7 +13,7 @@ metadata:
   labels:
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
-    app.kubernetes.io/version: "2.6.1"
+    app.kubernetes.io/version: "v2.7.0"
 automountServiceAccountToken: false
 ---
 # Source: ssl-exporter/templates/configmap.yaml
@@ -25,7 +25,7 @@ metadata:
   labels:
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
-    app.kubernetes.io/version: "2.6.1"
+    app.kubernetes.io/version: "v2.7.0"
 data:
   config.yaml: |
     modules:
@@ -47,7 +47,7 @@ metadata:
   labels:
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
-    app.kubernetes.io/version: "2.6.1"
+    app.kubernetes.io/version: "v2.7.0"
 spec:
   type: ClusterIP
   ports:
@@ -68,7 +68,7 @@ metadata:
   labels:
     app.kubernetes.io/name: ssl-exporter
     app.kubernetes.io/instance: ssl-exporter
-    app.kubernetes.io/version: "2.6.1"
+    app.kubernetes.io/version: "v2.7.0"
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -84,7 +84,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: f9d7e6333e11e44611376a80fbeef7c23747fee39c0acb16df2b9bc02babacf4
+        checksum/config: 3002e1aa074fac458e7f4d02932f19880ed15acf3f643e1be7c301e629075c31
       labels:
         app.kubernetes.io/name: ssl-exporter
         app.kubernetes.io/instance: ssl-exporter
@@ -105,7 +105,7 @@ spec:
             runAsUser: 1000
             seccompProfile:
               type: RuntimeDefault
-          image: "ghcr.io/piotrkochan/ssl_exporter:2.6.1"
+          image: "ghcr.io/piotrkochan/ssl_exporter:v2.7.0"
           imagePullPolicy: IfNotPresent
           args:
             - --web.probe-path=/probe
