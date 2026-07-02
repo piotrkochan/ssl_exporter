@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - "charts/**"
+      - ".github/workflows/helm-release.yml"
 
 permissions:
   contents: write
@@ -69,17 +70,31 @@ jobs:
         with:
           version: v3.18.1
 
-      - name: Configure Git
+      - name: Package chart
         run: |
+          mkdir -p .helm-packages
+          helm package charts/ssl-exporter --destination .helm-packages
+
+      - name: Checkout Helm repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Publish chart
+        run: |
+          package="$(basename .helm-packages/*.tgz)"
+          if [ -f "gh-pages/${package}" ]; then
+            echo "${package} already exists in gh-pages."
+            exit 0
+          fi
+
+          cp ".helm-packages/${package}" gh-pages/
+          cd gh-pages
+          helm repo index . --url https://piotrkochan.github.io/ssl_exporter
+
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@a0d2dc62c5e491af8ef6ba64a2e02bcf3fb33aa1 # v1.7.0
-        with:
-          charts_dir: charts
-          pages_branch: gh-pages
-          skip_existing: true
-          mark_as_latest: false
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          git add "${package}" index.yaml
+          git commit -m "publish ${package}"
+          git push

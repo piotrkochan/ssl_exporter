@@ -2,7 +2,7 @@ apiVersion: v2
 name: ssl-exporter
 description: SSL Certificate Exporter for Prometheus
 type: application
-version: 0.1.0
+version: 1.0.0
 appVersion: "2.6.1"
 kubeVersion: ">=1.21.0-0"
 home: https://github.com/piotrkochan/ssl_exporter
