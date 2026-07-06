@@ -552,16 +552,16 @@ else
     FAILED=1
 fi
 
-echo -n "Test external revoked OCSP responder (travel.sngb.ru): "
-if curl -sk --connect-timeout 5 --max-time 10 "https://travel.sngb.ru" >/dev/null 2>&1; then
-    if check_probe_ocsp_responder_revoked "travel.sngb.ru:443" "https_ocsp_responder"; then
+echo -n "Test external revoked OCSP responder (revoked.grc.com): "
+if curl -sk --connect-timeout 5 --max-time 10 "https://revoked.grc.com" >/dev/null 2>&1; then
+    if check_probe_ocsp_responder_revoked "revoked.grc.com:443" "https_ocsp_responder"; then
         pass "external revoked OCSP responder"
     else
         echo "FAIL: external revoked OCSP responder probe failed"
         FAILED=1
     fi
 else
-    echo "SKIP: travel.sngb.ru is not reachable"
+    echo "SKIP: revoked.grc.com is not reachable"
 fi
 
 echo ""
