@@ -5,12 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"time"
-
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 )
 
 // TCPServer allows manipulation of the tls.Config before starting the listener
@@ -18,7 +16,7 @@ type TCPServer struct {
 	Listener net.Listener
 	TLS      *tls.Config
 	stopCh   chan struct{}
-	logger   log.Logger
+	logger   *slog.Logger
 }
 
 // StartTLS starts a listener that performs an immediate TLS handshake
@@ -33,7 +31,7 @@ func (t *TCPServer) StartTLS() {
 
 		// Immediately upgrade to TLS.
 		if err := conn.(*tls.Conn).Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		} else {
 			// Send some bytes before terminating the connection.
 			fmt.Fprintf(conn, "Hello World!\n")
@@ -57,7 +55,7 @@ func (t *TCPServer) StartTLSWait(d time.Duration) {
 		time.Sleep(d)
 
 		if err := conn.(*tls.Conn).Handshake(); err != nil {
-			level.Error(t.logger).Log(err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		} else {
 			// Send some bytes before terminating the connection.
 			fmt.Fprintf(conn, "Hello World!\n")
@@ -98,7 +96,7 @@ func (t *TCPServer) StartSMTP() {
 		// Upgrade to TLS.
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -137,7 +135,7 @@ func (t *TCPServer) StartSMTPWithDashInResponse() {
 		// Upgrade to TLS.
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -164,7 +162,7 @@ func (t *TCPServer) StartFTP() {
 		// Upgrade to TLS.
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log(err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -196,7 +194,7 @@ func (t *TCPServer) StartIMAP() {
 		// Upgrade to TLS.
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -223,7 +221,7 @@ func (t *TCPServer) StartPOP3() {
 		// Upgrade to TLS.
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -262,7 +260,7 @@ func (t *TCPServer) StartPostgreSQL() {
 
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -323,7 +321,7 @@ func (t *TCPServer) StartMySQL() {
 
 		tlsConn := tls.Server(conn, t.TLS)
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(t.logger).Log("msg", err)
+			t.logger.Error("TLS handshake failed", "err", err)
 		}
 		defer tlsConn.Close()
 
@@ -384,7 +382,7 @@ func SetupTCPServerWithCertAndKey(caPEM, certPEM, keyPEM []byte) (*TCPServer, st
 		Listener: ln,
 		TLS:      tlsConfig,
 		stopCh:   make(chan (struct{})),
-		logger:   log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout)),
+		logger:   slog.New(slog.NewTextHandler(os.Stdout, nil)),
 	}
 
 	return server, caFile, teardown, err
