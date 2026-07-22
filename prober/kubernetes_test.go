@@ -13,12 +13,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/client-go/rest"
 )
 
 type fakeKubernetesClient struct {
@@ -29,7 +31,7 @@ func (c *fakeKubernetesClient) ListTLSSecrets(context.Context) ([]kubernetesSecr
 	return c.secrets, nil
 }
 
-func TestKubernetesRESTClient_ListTLSSecrets(t *testing.T) {
+func TestKubernetesSecretsClient_ListTLSSecrets(t *testing.T) {
 	expected := kubernetesSecret{
 		Metadata: kubernetesObjectMeta{
 			Name:      "certificate",
@@ -60,10 +62,7 @@ func TestKubernetesRESTClient_ListTLSSecrets(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := &kubernetesRESTClient{
-		httpClient: server.Client(),
-		secretsURL: server.URL + "/api/v1/secrets?fieldSelector=type%3Dkubernetes.io%2Ftls",
-	}
+	client := newTestKubernetesSecretsClient(t, server)
 	secrets, err := client.ListTLSSecrets(t.Context())
 	if err != nil {
 		t.Fatalf("ListTLSSecrets() error: %v", err)
@@ -76,6 +75,59 @@ func TestKubernetesRESTClient_ListTLSSecrets(t *testing.T) {
 	}
 	if got := string(secrets[0].Data["tls.crt"]); got != "certificate data" {
 		t.Errorf("unexpected certificate data: got %q", got)
+	}
+}
+
+func TestKubernetesSecretsClient_Retries(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+	}{
+		{name: "too many requests", statusCode: http.StatusTooManyRequests},
+		{name: "service unavailable", statusCode: http.StatusServiceUnavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if requests.Add(1) == 1 {
+					w.Header().Set("Retry-After", "0")
+					http.Error(w, "retry", tt.statusCode)
+					return
+				}
+				if err := json.NewEncoder(w).Encode(kubernetesSecretList{}); err != nil {
+					t.Errorf("encoding response: %v", err)
+				}
+			}))
+			t.Cleanup(server.Close)
+
+			client := newTestKubernetesSecretsClient(t, server)
+			if _, err := client.ListTLSSecrets(t.Context()); err != nil {
+				t.Fatalf("ListTLSSecrets() error: %v", err)
+			}
+			if got := requests.Load(); got != 2 {
+				t.Errorf("request count = %d, want 2", got)
+			}
+		})
+	}
+}
+
+func TestKubernetesSecretsClient_RetryLimit(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Retry-After", "0")
+		http.Error(w, "retry", http.StatusTooManyRequests)
+	}))
+	t.Cleanup(server.Close)
+
+	client := newTestKubernetesSecretsClient(t, server)
+	if _, err := client.ListTLSSecrets(t.Context()); err == nil {
+		t.Fatal("ListTLSSecrets() returned no error after exhausting retries")
+	}
+	if got, want := requests.Load(), int32(11); got != want {
+		t.Errorf("request count = %d, want %d", got, want)
 	}
 }
 
@@ -112,6 +164,9 @@ func TestKubernetesClientEndToEnd(t *testing.T) {
 		}
 		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
 			t.Errorf("unexpected field selector: got %q", got)
+		}
+		if got, want := r.Header.Get("User-Agent"), rest.DefaultKubernetesUserAgent(); got != want {
+			t.Errorf("unexpected User-Agent: got %q, want %q", got, want)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -159,20 +214,27 @@ current-context: test-context
 	checkKubernetesMetrics(cert, "monitoring", "certificate", "tls.crt", registry, t)
 }
 
-func TestKubernetesRESTClient_ListTLSSecretsError(t *testing.T) {
+func TestKubernetesSecretsClient_ListTLSSecretsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 	}))
 	t.Cleanup(server.Close)
 
-	client := &kubernetesRESTClient{
-		httpClient: server.Client(),
-		secretsURL: server.URL,
-	}
+	client := newTestKubernetesSecretsClient(t, server)
 	_, err := client.ListTLSSecrets(t.Context())
-	if err == nil || !strings.Contains(err.Error(), "403 Forbidden: forbidden") {
+	if err == nil || !strings.Contains(err.Error(), "forbidden (get secrets)") {
 		t.Fatalf("ListTLSSecrets() error = %v, want a 403 error", err)
 	}
+}
+
+func newTestKubernetesSecretsClient(t *testing.T, server *httptest.Server) *kubernetesSecretsClient {
+	t.Helper()
+
+	client, err := newKubernetesSecretsClient(&rest.Config{Host: server.URL}, server.Client())
+	if err != nil {
+		t.Fatalf("newKubernetesSecretsClient() error: %v", err)
+	}
+	return client
 }
 
 func TestKubernetesProbe(t *testing.T) {
