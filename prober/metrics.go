@@ -15,7 +15,6 @@ import (
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ocsp"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -392,7 +391,7 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 	return nil
 }
 
-func collectKubernetesSecretMetrics(secrets []v1.Secret, registry *prometheus.Registry) error {
+func collectKubernetesSecretMetrics(secrets []kubernetesSecret, registry *prometheus.Registry) error {
 	var (
 		totalCerts         []*x509.Certificate
 		kubernetesNotAfter = prometheus.NewGaugeVec(
@@ -424,7 +423,10 @@ func collectKubernetesSecretMetrics(secrets []v1.Secret, registry *prometheus.Re
 			}
 			totalCerts = append(totalCerts, certs...)
 			for _, cert := range certs {
-				labels := append([]string{secret.Namespace, secret.Name, key}, labelValues(cert)...)
+				labels := append(
+					[]string{secret.Metadata.Namespace, secret.Metadata.Name, key},
+					labelValues(cert)...,
+				)
 
 				if !cert.NotAfter.IsZero() {
 					kubernetesNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))

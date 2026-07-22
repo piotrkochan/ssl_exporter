@@ -2,17 +2,19 @@ package prober
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v2"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/prometheus/client_golang/prometheus"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/flowcontrol"
 
 	// Support oidc in kube config files
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -24,6 +26,28 @@ var (
 	ErrKubeBadTarget = fmt.Errorf("Target secret must be provided in the form: <namespace>/<name>")
 )
 
+type kubernetesObjectMeta struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type kubernetesSecret struct {
+	Metadata kubernetesObjectMeta `json:"metadata"`
+	Data     map[string][]byte    `json:"data"`
+}
+
+type kubernetesSecretList struct {
+	Items []kubernetesSecret `json:"items"`
+}
+
+type kubernetesClient interface {
+	ListTLSSecrets(context.Context) ([]kubernetesSecret, error)
+}
+
+type kubernetesSecretsClient struct {
+	restClient *rest.RESTClient
+}
+
 // ProbeKubernetes collects certificate metrics from kubernetes.io/tls Secrets
 func ProbeKubernetes(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
 	client, err := newKubeClient(module.Kubernetes.Kubeconfig)
@@ -34,7 +58,7 @@ func ProbeKubernetes(ctx context.Context, logger *slog.Logger, target string, mo
 	return probeKubernetes(ctx, target, module, registry, client)
 }
 
-func probeKubernetes(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, client kubernetes.Interface) error {
+func probeKubernetes(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, client kubernetesClient) error {
 	parts := strings.Split(target, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return ErrKubeBadTarget
@@ -43,17 +67,17 @@ func probeKubernetes(ctx context.Context, target string, module config.Module, r
 	ns := parts[0]
 	name := parts[1]
 
-	var tlsSecrets []v1.Secret
-	secrets, err := client.CoreV1().Secrets("").List(ctx, metav1.ListOptions{FieldSelector: "type=kubernetes.io/tls"})
+	var tlsSecrets []kubernetesSecret
+	secrets, err := client.ListTLSSecrets(ctx)
 	if err != nil {
 		return err
 	}
-	for _, secret := range secrets.Items {
-		nMatch, err := doublestar.Match(ns, secret.Namespace)
+	for _, secret := range secrets {
+		nMatch, err := doublestar.Match(ns, secret.Metadata.Namespace)
 		if err != nil {
 			return err
 		}
-		sMatch, err := doublestar.Match(name, secret.Name)
+		sMatch, err := doublestar.Match(name, secret.Metadata.Name)
 		if err != nil {
 			return err
 		}
@@ -65,10 +89,10 @@ func probeKubernetes(ctx context.Context, target string, module config.Module, r
 	return collectKubernetesSecretMetrics(tlsSecrets, registry)
 }
 
-// newKubeClient returns a Kubernetes client (clientset) from the supplied
+// newKubeClient returns a minimal Kubernetes Secrets client from the supplied
 // kubeconfig path, the KUBECONFIG environment variable, the default config file
 // location ($HOME/.kube/config) or from the in-cluster service account environment.
-func newKubeClient(path string) (*kubernetes.Clientset, error) {
+func newKubeClient(path string) (kubernetesClient, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if path != "" {
 		loadingRules.ExplicitPath = path
@@ -77,10 +101,76 @@ func newKubeClient(path string) (*kubernetes.Clientset, error) {
 		loadingRules,
 		&clientcmd.ConfigOverrides{},
 	)
-	config, err := kubeConfig.ClientConfig()
+	restConfig, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	if restConfig.UserAgent == "" {
+		restConfig.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
+
+	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubernetes.NewForConfig(config)
+	return newKubernetesSecretsClient(restConfig, httpClient)
+}
+
+func newKubernetesSecretsClient(restConfig *rest.Config, httpClient *http.Client) (*kubernetesSecretsClient, error) {
+	baseURL, err := url.Parse(restConfig.Host)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Kubernetes API URL: %w", err)
+	}
+
+	rateLimiter := restConfig.RateLimiter
+	if rateLimiter == nil {
+		qps := restConfig.QPS
+		if qps == 0 {
+			qps = rest.DefaultQPS
+		}
+		burst := restConfig.Burst
+		if burst == 0 {
+			burst = rest.DefaultBurst
+		}
+		if qps > 0 {
+			if burst <= 0 {
+				return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+			}
+			rateLimiter = flowcontrol.NewTokenBucketRateLimiter(qps, burst)
+		}
+	}
+
+	client, err := rest.NewRESTClient(
+		baseURL,
+		"/api/v1",
+		rest.ClientContentConfig{
+			AcceptContentTypes: "application/json",
+			ContentType:        "application/json",
+		},
+		rateLimiter,
+		httpClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubernetesSecretsClient{restClient: client}, nil
+}
+
+func (c *kubernetesSecretsClient) ListTLSSecrets(ctx context.Context) ([]kubernetesSecret, error) {
+	body, err := c.restClient.Get().
+		Resource("secrets").
+		Param("fieldSelector", "type=kubernetes.io/tls").
+		DoRaw(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var secrets kubernetesSecretList
+	if err := json.Unmarshal(body, &secrets); err != nil {
+		return nil, fmt.Errorf("decoding Kubernetes Secrets: %w", err)
+	}
+
+	return secrets.Items, nil
 }

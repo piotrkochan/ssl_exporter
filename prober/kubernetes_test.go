@@ -3,7 +3,15 @@ package prober
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,10 +19,156 @@ import (
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/test"
 	"github.com/prometheus/client_golang/prometheus"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
+
+type fakeKubernetesClient struct {
+	secrets []kubernetesSecret
+}
+
+func (c *fakeKubernetesClient) ListTLSSecrets(context.Context) ([]kubernetesSecret, error) {
+	return c.secrets, nil
+}
+
+func TestKubernetesSecretsClient_ListTLSSecrets(t *testing.T) {
+	expected := kubernetesSecret{
+		Metadata: kubernetesObjectMeta{
+			Name:      "certificate",
+			Namespace: "monitoring",
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("certificate data"),
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: got %q, want %q", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/api/v1/secrets" {
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, "/api/v1/secrets")
+		}
+		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
+			t.Errorf("unexpected field selector: got %q", got)
+		}
+		if got := r.Header.Get("Accept"); got != "application/json" {
+			t.Errorf("unexpected Accept header: got %q", got)
+		}
+
+		if err := json.NewEncoder(w).Encode(kubernetesSecretList{Items: []kubernetesSecret{expected}}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client := newTestKubernetesSecretsClient(t, server)
+	secrets, err := client.ListTLSSecrets(t.Context())
+	if err != nil {
+		t.Fatalf("ListTLSSecrets() error: %v", err)
+	}
+	if len(secrets) != 1 {
+		t.Fatalf("ListTLSSecrets() returned %d secrets, want 1", len(secrets))
+	}
+	if secrets[0].Metadata != expected.Metadata {
+		t.Errorf("unexpected metadata: got %+v, want %+v", secrets[0].Metadata, expected.Metadata)
+	}
+	if got := string(secrets[0].Data["tls.crt"]); got != "certificate data" {
+		t.Errorf("unexpected certificate data: got %q", got)
+	}
+}
+
+func TestKubernetesClientEndToEnd(t *testing.T) {
+	const token = "test-bearer-token"
+
+	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour))
+	block, _ := pem.Decode(certPEM)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("parsing test certificate: %v", err)
+	}
+
+	expected := kubernetesSecret{
+		Metadata: kubernetesObjectMeta{
+			Name:      "certificate",
+			Namespace: "monitoring",
+		},
+		Data: map[string][]byte{
+			"tls.crt": certPEM,
+		},
+	}
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer "+token {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: got %q, want %q", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/cluster/api/v1/secrets" {
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, "/cluster/api/v1/secrets")
+		}
+		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
+			t.Errorf("unexpected field selector: got %q", got)
+		}
+		if got, want := r.Header.Get("User-Agent"), rest.DefaultKubernetesUserAgent(); got != want {
+			t.Errorf("unexpected User-Agent: got %q, want %q", got, want)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(kubernetesSecretList{Items: []kubernetesSecret{expected}}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	caPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	})
+	kubeconfig := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- name: test-cluster
+  cluster:
+    server: %s/cluster
+    certificate-authority-data: %s
+users:
+- name: test-user
+  user:
+    token: %s
+contexts:
+- name: test-context
+  context:
+    cluster: test-cluster
+    user: test-user
+current-context: test-context
+`, server.URL, base64.StdEncoding.EncodeToString(caPEM), token)
+	kubeconfigPath := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
+		t.Fatalf("writing kubeconfig: %v", err)
+	}
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Kubernetes: config.KubernetesProbe{Kubeconfig: kubeconfigPath},
+	}
+	if err := ProbeKubernetes(t.Context(), slog.Default(), "monitoring/certificate", module, registry); err != nil {
+		t.Fatalf("ProbeKubernetes() error: %v", err)
+	}
+
+	checkKubernetesMetrics(cert, "monitoring", "certificate", "tls.crt", registry, t)
+}
+
+func newTestKubernetesSecretsClient(t *testing.T, server *httptest.Server) *kubernetesSecretsClient {
+	t.Helper()
+
+	client, err := newKubernetesSecretsClient(&rest.Config{Host: server.URL}, server.Client())
+	if err != nil {
+		t.Fatalf("newKubernetesSecretsClient() error: %v", err)
+	}
+	return client
+}
 
 func TestKubernetesProbe(t *testing.T) {
 	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour * 1))
@@ -31,17 +185,18 @@ func TestKubernetesProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fakeKubeClient := fake.NewSimpleClientset(&v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
+	fakeKubeClient := &fakeKubernetesClient{secrets: []kubernetesSecret{
+		{
+			Metadata: kubernetesObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Data: map[string][]byte{
+				"tls.crt": certPEM,
+				"ca.crt":  caPEM,
+			},
 		},
-		Data: map[string][]byte{
-			"tls.crt": certPEM,
-			"ca.crt":  caPEM,
-		},
-		Type: "kubernetes.io/tls",
-	})
+	}}
 
 	module := config.Module{}
 
@@ -87,19 +242,19 @@ func TestKubernetesProbeGlob(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fakeKubeClient := fake.NewSimpleClientset(&v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
+	fakeKubeClient := &fakeKubernetesClient{secrets: []kubernetesSecret{
+		{
+			Metadata: kubernetesObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Data: map[string][]byte{
+				"tls.crt": certPEM,
+				"ca.crt":  caPEM,
+			},
 		},
-		Data: map[string][]byte{
-			"tls.crt": certPEM,
-			"ca.crt":  caPEM,
-		},
-		Type: "kubernetes.io/tls",
-	},
-		&v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
+		{
+			Metadata: kubernetesObjectMeta{
 				Name:      "fooz",
 				Namespace: "baz",
 			},
@@ -107,8 +262,8 @@ func TestKubernetesProbeGlob(t *testing.T) {
 				"tls.crt": certPEM2,
 				"ca.crt":  caPEM2,
 			},
-			Type: "kubernetes.io/tls",
-		})
+		},
+	}}
 
 	module := config.Module{}
 
@@ -128,7 +283,7 @@ func TestKubernetesProbeGlob(t *testing.T) {
 }
 
 func TestKubernetesProbeBadTarget(t *testing.T) {
-	fakeKubeClient := fake.NewSimpleClientset()
+	fakeKubeClient := &fakeKubernetesClient{}
 
 	module := config.Module{}
 
