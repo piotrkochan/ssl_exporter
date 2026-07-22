@@ -66,25 +66,19 @@ metric indicates if the probe has been successful.
 ## Usage
 
 ```
-usage: ssl_exporter [<flags>]
+Usage: ssl_exporter [flags]
 
 Flags:
-  -h, --help                     Show context-sensitive help (also try --help-long and
-                                 --help-man).
-      --web.metrics-path="/metrics"
-                                 Path under which to expose metrics
-      --web.probe-path="/probe"  Path under which to expose the probe endpoint
-      --config.file=""           SSL exporter configuration file
-      --web.listen-address=:9219 ...
-                                 Addresses on which to expose metrics and web interface.
-                                 Repeatable for multiple addresses.
-      --web.config.file=""       Path to configuration file that can enable TLS or
-                                 authentication. See:
-                                 https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
-      --log.level=info           Only log messages with the given severity or above.
-                                 One of: [debug, info, warn, error]
-      --log.format=logfmt        Output format of log messages. One of: [logfmt, json]
-      --version                  Show application version.
+  -h, --help                       Show help
+      --web.metrics-path string    Path under which to expose metrics (default "/metrics")
+      --web.probe-path string      Path under which to expose the probe endpoint (default "/probe")
+      --config.file string         SSL exporter configuration file
+      --web.listen-address value   Address on which to listen; repeatable (default :9219)
+      --web.systemd-socket         Use systemd socket activation (Linux only)
+      --web.config.file string     Web TLS and authentication configuration file
+      --log.level value            One of: debug, info, warn, error (default info)
+      --log.format value           One of: logfmt, json (default logfmt)
+      --version                    Show application version
 ```
 
 ### TLS and basic authentication

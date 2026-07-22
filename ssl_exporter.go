@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -9,17 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alecthomas/kingpin/v2"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
 	"github.com/piotrkochan/ssl_exporter/v2/prober"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promslog"
-	promslogflag "github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
-	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 )
 
 const (
@@ -143,25 +141,23 @@ func init() {
 }
 
 func main() {
-	var (
-		metricsPath    = kingpin.Flag("web.metrics-path", "Path under which to expose metrics").Default("/metrics").String()
-		probePath      = kingpin.Flag("web.probe-path", "Path under which to expose the probe endpoint").Default("/probe").String()
-		configFile     = kingpin.Flag("config.file", "SSL exporter configuration file").Default("").String()
-		toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9219")
-		promslogConfig = &promslog.Config{}
-		err            error
-	)
+	cli, err := parseCLI(os.Args[1:], os.Stderr)
+	if err == flag.ErrHelp {
+		return
+	}
+	if err != nil {
+		os.Exit(2)
+	}
+	if cli.showVersion {
+		fmt.Fprintln(os.Stdout, version.Print(namespace+"_exporter"))
+		return
+	}
 
-	promslogflag.AddFlags(kingpin.CommandLine, promslogConfig)
-	kingpin.Version(version.Print(namespace + "_exporter"))
-	kingpin.HelpFlag.Short('h')
-	kingpin.Parse()
-
-	logger := promslog.New(promslogConfig)
+	logger := promslog.New(cli.promslogConfig)
 
 	conf := config.DefaultConfig
-	if *configFile != "" {
-		conf, err = config.LoadConfig(*configFile)
+	if cli.configFile != "" {
+		conf, err = config.LoadConfig(cli.configFile)
 		if err != nil {
 			logger.Error("Error loading config", "err", err)
 			os.Exit(1)
@@ -171,8 +167,8 @@ func main() {
 	logger.Info(fmt.Sprintf("Starting %s_exporter %s", namespace, version.Info()))
 	logger.Info(fmt.Sprintf("Build context %s", version.BuildContext()))
 
-	http.Handle(*metricsPath, promhttp.Handler())
-	http.HandleFunc(*probePath, func(w http.ResponseWriter, r *http.Request) {
+	http.Handle(cli.metricsPath, promhttp.Handler())
+	http.HandleFunc(cli.probePath, func(w http.ResponseWriter, r *http.Request) {
 		probeHandler(logger, w, r, conf)
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -180,14 +176,14 @@ func main() {
 						 <head><title>SSL Exporter</title></head>
 						 <body>
 						 <h1>SSL Exporter</h1>
-						 <p><a href="` + *probePath + `?target=example.com:443">Probe example.com:443 for SSL cert metrics</a></p>
-						 <p><a href='` + *metricsPath + `'>Metrics</a></p>
+						 <p><a href="` + cli.probePath + `?target=example.com:443">Probe example.com:443 for SSL cert metrics</a></p>
+						 <p><a href='` + cli.metricsPath + `'>Metrics</a></p>
 						 </body>
 						 </html>`))
 	})
 
 	server := &http.Server{}
-	if err := web.ListenAndServe(server, toolkitFlags, logger); err != nil {
+	if err := web.ListenAndServe(server, cli.toolkitFlags, logger); err != nil {
 		logger.Error("Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}
