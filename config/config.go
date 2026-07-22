@@ -230,7 +230,17 @@ type HTTPSProbe struct {
 
 // KubernetesProbe configures a kubernetes probe
 type KubernetesProbe struct {
-	Kubeconfig string `yaml:"kubeconfig,omitempty"`
+	Kubeconfig string                 `yaml:"kubeconfig,omitempty"`
+	Client     KubernetesClientConfig `yaml:"client,omitempty"`
+}
+
+// KubernetesClientConfig configures the Kubernetes API client.
+type KubernetesClientConfig struct {
+	QPS            float32       `yaml:"qps,omitempty"`
+	Burst          int           `yaml:"burst,omitempty"`
+	UserAgent      string        `yaml:"user_agent,omitempty"`
+	ReadTimeout    time.Duration `yaml:"read_timeout,omitempty"`
+	ConnectTimeout time.Duration `yaml:"connect_timeout,omitempty"`
 }
 
 // HTTPFileProbe configures a http_file probe

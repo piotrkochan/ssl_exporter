@@ -571,6 +571,24 @@ target: <string>
 ```
 # The path of a kubeconfig file to configure the probe
 [ kubeconfig: <string> ]
+
+# Kubernetes API client configuration
+[ client:
+  # Maximum average number of requests per second
+  [ qps: <float> | default = 5 ]
+
+  # Maximum number of requests allowed in a short burst
+  [ burst: <int> | default = 10 ]
+
+  # User-Agent header sent to the Kubernetes API
+  [ user_agent: <string> | default = client-go default ]
+
+  # Maximum time to read a complete response
+  [ read_timeout: <duration> | default = module timeout ]
+
+  # Maximum time to establish a TCP connection
+  [ connect_timeout: <duration> | default = client-go default ]
+]
 ```
 
 ### <http_file_probe>

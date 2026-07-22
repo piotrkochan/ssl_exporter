@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/bmatcuk/doublestar/v2"
 	"github.com/piotrkochan/ssl_exporter/v2/config"
@@ -50,7 +52,7 @@ type kubernetesSecretsClient struct {
 
 // ProbeKubernetes collects certificate metrics from kubernetes.io/tls Secrets
 func ProbeKubernetes(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
-	client, err := newKubeClient(module.Kubernetes.Kubeconfig)
+	client, err := newKubeClient(module.Kubernetes)
 	if err != nil {
 		return err
 	}
@@ -92,10 +94,10 @@ func probeKubernetes(ctx context.Context, target string, module config.Module, r
 // newKubeClient returns a minimal Kubernetes Secrets client from the supplied
 // kubeconfig path, the KUBECONFIG environment variable, the default config file
 // location ($HOME/.kube/config) or from the in-cluster service account environment.
-func newKubeClient(path string) (kubernetesClient, error) {
+func newKubeClient(kubernetesConfig config.KubernetesProbe) (kubernetesClient, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if path != "" {
-		loadingRules.ExplicitPath = path
+	if kubernetesConfig.Kubeconfig != "" {
+		loadingRules.ExplicitPath = kubernetesConfig.Kubeconfig
 	}
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		loadingRules,
@@ -104,6 +106,18 @@ func newKubeClient(path string) (kubernetesClient, error) {
 	restConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, err
+	}
+	restConfig.QPS = kubernetesConfig.Client.QPS
+	restConfig.Burst = kubernetesConfig.Client.Burst
+	restConfig.Timeout = kubernetesConfig.Client.ReadTimeout
+	if kubernetesConfig.Client.UserAgent != "" {
+		restConfig.UserAgent = kubernetesConfig.Client.UserAgent
+	}
+	if kubernetesConfig.Client.ConnectTimeout > 0 {
+		restConfig.Dial = (&net.Dialer{
+			Timeout:   kubernetesConfig.Client.ConnectTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext
 	}
 	if restConfig.UserAgent == "" {
 		restConfig.UserAgent = rest.DefaultKubernetesUserAgent()
