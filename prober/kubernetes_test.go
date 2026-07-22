@@ -78,7 +78,10 @@ func TestKubernetesSecretsClient_ListTLSSecrets(t *testing.T) {
 }
 
 func TestKubernetesClientEndToEnd(t *testing.T) {
-	const token = "test-bearer-token"
+	const (
+		token     = "test-bearer-token"
+		userAgent = "ssl-exporter-test"
+	)
 
 	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour))
 	block, _ := pem.Decode(certPEM)
@@ -111,8 +114,8 @@ func TestKubernetesClientEndToEnd(t *testing.T) {
 		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
 			t.Errorf("unexpected field selector: got %q", got)
 		}
-		if got, want := r.Header.Get("User-Agent"), rest.DefaultKubernetesUserAgent(); got != want {
-			t.Errorf("unexpected User-Agent: got %q, want %q", got, want)
+		if got := r.Header.Get("User-Agent"); got != userAgent {
+			t.Errorf("unexpected User-Agent: got %q, want %q", got, userAgent)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -151,7 +154,14 @@ current-context: test-context
 
 	registry := prometheus.NewRegistry()
 	module := config.Module{
-		Kubernetes: config.KubernetesProbe{Kubeconfig: kubeconfigPath},
+		Kubernetes: config.KubernetesProbe{
+			Kubeconfig: kubeconfigPath,
+			Client: config.KubernetesClientConfig{
+				UserAgent:      userAgent,
+				ReadTimeout:    5 * time.Second,
+				ConnectTimeout: 5 * time.Second,
+			},
+		},
 	}
 	if err := ProbeKubernetes(t.Context(), slog.Default(), "monitoring/certificate", module, registry); err != nil {
 		t.Fatalf("ProbeKubernetes() error: %v", err)

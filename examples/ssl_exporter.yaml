@@ -76,6 +76,12 @@ modules:
     prober: kubernetes
     kubernetes:
       kubeconfig: /root/.kube/config
+      client:
+        qps: 5
+        burst: 10
+        user_agent: ssl-exporter
+        read_timeout: 8s
+        connect_timeout: 2s
   kubeconfig:
     prober: kubeconfig
   tls_cipher:
