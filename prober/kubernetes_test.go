@@ -3,10 +3,15 @@ package prober
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +77,86 @@ func TestKubernetesRESTClient_ListTLSSecrets(t *testing.T) {
 	if got := string(secrets[0].Data["tls.crt"]); got != "certificate data" {
 		t.Errorf("unexpected certificate data: got %q", got)
 	}
+}
+
+func TestKubernetesClientEndToEnd(t *testing.T) {
+	const token = "test-bearer-token"
+
+	certPEM, _ := test.GenerateTestCertificate(time.Now().Add(time.Hour))
+	block, _ := pem.Decode(certPEM)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("parsing test certificate: %v", err)
+	}
+
+	expected := kubernetesSecret{
+		Metadata: kubernetesObjectMeta{
+			Name:      "certificate",
+			Namespace: "monitoring",
+		},
+		Data: map[string][]byte{
+			"tls.crt": certPEM,
+		},
+	}
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer "+token {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: got %q, want %q", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/cluster/api/v1/secrets" {
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, "/cluster/api/v1/secrets")
+		}
+		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
+			t.Errorf("unexpected field selector: got %q", got)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(kubernetesSecretList{Items: []kubernetesSecret{expected}}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	caPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	})
+	kubeconfig := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- name: test-cluster
+  cluster:
+    server: %s/cluster
+    certificate-authority-data: %s
+users:
+- name: test-user
+  user:
+    token: %s
+contexts:
+- name: test-context
+  context:
+    cluster: test-cluster
+    user: test-user
+current-context: test-context
+`, server.URL, base64.StdEncoding.EncodeToString(caPEM), token)
+	kubeconfigPath := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
+		t.Fatalf("writing kubeconfig: %v", err)
+	}
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Kubernetes: config.KubernetesProbe{Kubeconfig: kubeconfigPath},
+	}
+	if err := ProbeKubernetes(t.Context(), slog.Default(), "monitoring/certificate", module, registry); err != nil {
+		t.Fatalf("ProbeKubernetes() error: %v", err)
+	}
+
+	checkKubernetesMetrics(cert, "monitoring", "certificate", "tls.crt", registry, t)
 }
 
 func TestKubernetesRESTClient_ListTLSSecretsError(t *testing.T) {
