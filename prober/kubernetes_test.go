@@ -157,7 +157,9 @@ current-context: test-context
 		Kubernetes: config.KubernetesProbe{
 			Kubeconfig: kubeconfigPath,
 			Client: config.KubernetesClientConfig{
-				UserAgent: userAgent,
+				UserAgent:      userAgent,
+				ReadTimeout:    5 * time.Second,
+				ConnectTimeout: 5 * time.Second,
 			},
 		},
 	}
