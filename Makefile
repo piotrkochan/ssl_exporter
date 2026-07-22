@@ -28,7 +28,7 @@ test:
 
 cover:
 	@echo ">> running tests with coverage"
-	go test -short $(RACE) -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -short $(RACE) -coverprofile=coverage.txt -covermode=atomic ./...
 
 format:
 	@echo ">> formatting code"
