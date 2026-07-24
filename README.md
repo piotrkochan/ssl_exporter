@@ -634,13 +634,10 @@ target: <string>
 
 ## Examples
 
-The [`examples/`](examples) directory contains ready-to-use configuration files:
+The [`examples/`](examples) directory contains ready-to-use files:
 
 - [`ssl_exporter.yaml`](examples/ssl_exporter.yaml) - exporter module configuration covering every prober.
 - [`example.prometheus.yml`](examples/example.prometheus.yml) - Prometheus scrape configuration.
-
-The [`contrib/`](contrib) directory contains optional integrations:
-
 - [`ssl_exporter.rules.yml`](contrib/ssl_exporter.rules.yml) - Prometheus alerting rules for probe failures, certificate and OCSP status, deprecated TLS, and insecure cipher suites.
 
 ## Example Queries
