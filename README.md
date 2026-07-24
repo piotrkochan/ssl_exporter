@@ -634,51 +634,10 @@ target: <string>
 
 ## Examples
 
-The [`examples/`](examples) directory contains ready-to-use files:
-
-- [`ssl_exporter.yaml`](examples/ssl_exporter.yaml) - exporter module configuration covering every prober.
-- [`example.prometheus.yml`](examples/example.prometheus.yml) - Prometheus scrape configuration.
-- [`ssl_exporter.rules.yml`](examples/ssl_exporter.rules.yml) - Prometheus alerting rules (probe failures, certificate expiry and revocation, deprecated TLS).
-
-## Example Queries
-
-Certificates that expire within 7 days:
-
-```
-ssl_cert_not_after - time() < 86400 * 7
-```
-
-Certificates from any prober (tcp, https, file, keystore, kubernetes,
-kubeconfig, tls_cipher) that expire within 7 days:
-
-```
-{__name__=~"ssl_.*cert_not_after"} - time() < 86400 * 7
-```
-
-Wildcard certificates that are expiring:
-
-```
-ssl_cert_not_after{cn=~"\*.*"} - time() < 86400 * 7
-```
-
-Certificates that expire within 7 days in the verified chain that expires
-latest:
-
-```
-ssl_verified_cert_not_after{chain_no="0"} - time() < 86400 * 7
-```
-
-Number of certificates presented by the server:
-
-```
-count(ssl_cert_not_after) by (instance)
-```
-
-Identify failed probes:
-
-```
-ssl_probe_success == 0
-```
+- [`ssl_exporter.yaml`](examples/ssl_exporter.yaml) - exporter module configuration covering every prober
+- [`example.prometheus.yml`](examples/example.prometheus.yml) - prometheus scrape configuration
+- [`ssl_exporter.rules.yml`](contrib/ssl_exporter.rules.yml) - prometheus alerting rules
+- [`dashboard.json`](contrib/grafana/dashboard.json) - a simple grafana dashboard
 
 ## Peer Certificates vs Verified Chain Certificates
 
@@ -713,8 +672,3 @@ It's very important to note that a query of this kind only represents the chain
 of trust between the exporter and the target. Genuine clients may hold different
 root certs than the exporter and therefore have different verified chains of
 trust.
-
-## Grafana
-
-You can find a simple dashboard [here](contrib/grafana/dashboard.json) that tracks
-certificate expiration dates and target connection errors.
