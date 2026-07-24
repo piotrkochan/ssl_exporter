@@ -636,9 +636,8 @@ target: <string>
 
 - [`ssl_exporter.yaml`](examples/ssl_exporter.yaml) - exporter module configuration covering every prober
 - [`example.prometheus.yml`](examples/example.prometheus.yml) - prometheus scrape configuration
-- [`ssl_exporter.rules.yml`](contrib/ssl_exporter.rules.yml) - prometheus alerting rules for probe failures, certificate and OCSP status, deprecated TLS, and insecure cipher suites
-- [`queries.md`](examples/queries.md) - some example queries
-- [`dashboard.json`](contrib/grafana/dashboard.json) - a simple grafana dashboard that tracks certificate expiration dates and target connection errors
+- [`ssl_exporter.rules.yml`](contrib/ssl_exporter.rules.yml) - prometheus alerting rules
+- [`dashboard.json`](contrib/grafana/dashboard.json) - a simple grafana dashboard
 
 ## Peer Certificates vs Verified Chain Certificates
 
