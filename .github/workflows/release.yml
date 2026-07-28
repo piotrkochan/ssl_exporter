@@ -74,6 +74,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           APP_BRANCH: ${{ github.ref_name }}
           APP_USER: github-actions
           APP_HOST: github.com
