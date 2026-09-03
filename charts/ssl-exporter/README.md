@@ -6,8 +6,7 @@ SSL Certificate Exporter for Prometheus
 
 ## Installation
 
-The chart is signed with Cosign during publication. Verify it before
-installation:
+The chart is signed with Cosign. Verify it before installation:
 
 ```bash
 cosign verify \
@@ -16,7 +15,7 @@ cosign verify \
   ghcr.io/piotrkochan/charts/ssl-exporter:1.0.1
 ```
 
-Install the verified version:
+Install:
 
 ```bash
 helm install ssl-exporter oci://ghcr.io/piotrkochan/charts/ssl-exporter --version 1.0.1
