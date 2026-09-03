@@ -6,10 +6,20 @@
 
 ## Installation
 
+The chart is signed with Cosign during publication. Verify it before
+installation:
+
 ```bash
-helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
-helm repo update
-helm install ssl-exporter ssl-exporter/ssl-exporter
+cosign verify \
+  --certificate-identity "https://github.com/piotrkochan/ssl_exporter/.github/workflows/helm-release.yml@refs/heads/master" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  ghcr.io/piotrkochan/charts/ssl-exporter:{{ .Version }}
+```
+
+Install the verified version:
+
+```bash
+helm install ssl-exporter oci://ghcr.io/piotrkochan/charts/ssl-exporter --version {{ .Version }}
 ```
 
 Or install static manifests directly:
