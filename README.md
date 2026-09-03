@@ -46,7 +46,7 @@ kubectl apply -f https://raw.githubusercontent.com/piotrkochan/ssl_exporter/mast
 ### Helm
 
 ```bash
-helm install ssl-exporter oci://ghcr.io/piotrkochan/charts/ssl-exporter --version 1.0.1
+helm install ssl-exporter oci://ghcr.io/piotrkochan/charts/ssl-exporter
 ```
 
 See [Helm installation and configuration](charts/ssl-exporter/README.md).
