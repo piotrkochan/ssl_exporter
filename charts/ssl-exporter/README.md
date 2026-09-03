@@ -2,14 +2,23 @@
 
 SSL Certificate Exporter for Prometheus
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.6.1](https://img.shields.io/badge/AppVersion-2.6.1-informational?style=flat-square)
+![Version: 1.0.1](https://img.shields.io/badge/Version-1.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.8.1](https://img.shields.io/badge/AppVersion-2.8.1-informational?style=flat-square)
 
 ## Installation
 
+The chart is signed with Cosign. Verify it before installation:
+
 ```bash
-helm repo add ssl-exporter https://piotrkochan.github.io/ssl_exporter
-helm repo update
-helm install ssl-exporter ssl-exporter/ssl-exporter
+cosign verify \
+  --certificate-identity "https://github.com/piotrkochan/ssl_exporter/.github/workflows/helm-release.yml@refs/heads/master" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  ghcr.io/piotrkochan/charts/ssl-exporter:1.0.1
+```
+
+Install:
+
+```bash
+helm install ssl-exporter oci://ghcr.io/piotrkochan/charts/ssl-exporter --version 1.0.1
 ```
 
 Or install static manifests directly:
