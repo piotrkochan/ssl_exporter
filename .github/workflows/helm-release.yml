@@ -6,12 +6,17 @@ on:
       - master
     paths:
       - "charts/**"
+      - "ct.yaml"
+      - "Makefile"
       - ".github/workflows/helm-release.yml"
   pull_request:
     branches:
       - master
     paths:
       - "charts/**"
+      - "deploy/manifests/**"
+      - "ct.yaml"
+      - "Makefile"
       - ".github/workflows/helm-release.yml"
   workflow_dispatch:
 
