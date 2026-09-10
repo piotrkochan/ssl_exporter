@@ -1,17 +1,14 @@
 name: Helm Chart Release
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "charts/**"
-      - ".github/workflows/helm-release.yml"
   pull_request:
     branches:
       - master
     paths:
       - "charts/**"
+      - "deploy/manifests/**"
+      - "ct.yaml"
+      - "Makefile"
       - ".github/workflows/helm-release.yml"
   workflow_dispatch:
 

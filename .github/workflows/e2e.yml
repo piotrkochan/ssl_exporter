@@ -1,10 +1,15 @@
 name: E2E Tests
 
 on:
-  push:
-    branches: [master]
   pull_request:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "e2e/**"
+      - ".github/workflows/e2e.yml"
 
 permissions:
   contents: read
