@@ -1,6 +1,15 @@
 name: test
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - ".github/workflows/test.yaml"
   pull_request:
     branches:
       - master
