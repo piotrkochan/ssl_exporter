@@ -117,28 +117,16 @@ jobs:
 
           docker manifest inspect "ghcr.io/piotrkochan/ssl_exporter:${app_version}" >/dev/null
 
+          if helm show chart "oci://${CHART_REGISTRY}/ssl-exporter" --version "$chart_version" >/dev/null 2>&1; then
+            echo "Chart ${chart_reference} has already been published." >&2
+            exit 1
+          fi
+
           local_package=".helm-packages/local/ssl-exporter-${chart_version}.tgz"
-          remote_package=".helm-packages/remote/ssl-exporter-${chart_version}.tgz"
-          local_contents=".helm-packages/local-contents"
-          remote_contents=".helm-packages/remote-contents"
-          mkdir -p .helm-packages/local .helm-packages/remote "$local_contents" "$remote_contents"
+          mkdir -p .helm-packages/local
           helm package charts/ssl-exporter --destination .helm-packages/local
 
-          chart_existed=false
-          if helm show chart "oci://${CHART_REGISTRY}/ssl-exporter" --version "$chart_version" >/dev/null 2>&1; then
-            chart_existed=true
-            helm_output="$(helm pull "oci://${CHART_REGISTRY}/ssl-exporter" \
-              --version "$chart_version" \
-              --destination .helm-packages/remote 2>&1)"
-            tar -xzf "$local_package" --directory "$local_contents"
-            tar -xzf "$remote_package" --directory "$remote_contents"
-            if ! diff --recursive --brief "$local_contents" "$remote_contents"; then
-              echo "Chart ${chart_reference} already exists with different content." >&2
-              exit 1
-            fi
-          else
-            helm_output="$(helm push "$local_package" "oci://${CHART_REGISTRY}" 2>&1)"
-          fi
+          helm_output="$(helm push "$local_package" "oci://${CHART_REGISTRY}" 2>&1)"
 
           printf '%s\n' "$helm_output"
           chart_digest="$(printf '%s\n' "$helm_output" | sed -n 's/^Digest: *//p')"
@@ -147,14 +135,6 @@ jobs:
             exit 1
           fi
           digest_reference="${CHART_REGISTRY}/ssl-exporter@${chart_digest}"
-
-          if [[ "$chart_existed" == true ]] && cosign verify \
-            --certificate-identity "$CERTIFICATE_IDENTITY" \
-            --certificate-oidc-issuer "$OIDC_ISSUER" \
-            "$digest_reference" >/dev/null 2>&1; then
-            echo "Chart ${chart_reference} has already been published and signed." >&2
-            exit 1
-          fi
 
           cosign sign --yes "$digest_reference"
           cosign verify \
