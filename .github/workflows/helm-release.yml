@@ -119,7 +119,9 @@ jobs:
 
           local_package=".helm-packages/local/ssl-exporter-${chart_version}.tgz"
           remote_package=".helm-packages/remote/ssl-exporter-${chart_version}.tgz"
-          mkdir -p .helm-packages/local .helm-packages/remote
+          local_contents=".helm-packages/local-contents"
+          remote_contents=".helm-packages/remote-contents"
+          mkdir -p .helm-packages/local .helm-packages/remote "$local_contents" "$remote_contents"
           helm package charts/ssl-exporter --destination .helm-packages/local
 
           chart_existed=false
@@ -128,7 +130,9 @@ jobs:
             helm_output="$(helm pull "oci://${CHART_REGISTRY}/ssl-exporter" \
               --version "$chart_version" \
               --destination .helm-packages/remote 2>&1)"
-            if ! cmp --silent "$local_package" "$remote_package"; then
+            tar -xzf "$local_package" --directory "$local_contents"
+            tar -xzf "$remote_package" --directory "$remote_contents"
+            if ! diff --recursive --brief "$local_contents" "$remote_contents"; then
               echo "Chart ${chart_reference} already exists with different content." >&2
               exit 1
             fi
