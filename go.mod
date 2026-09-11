@@ -8,8 +8,8 @@ require (
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.71.0
 	github.com/prometheus/exporter-toolkit v0.19.0
-	golang.org/x/crypto v0.55.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/crypto v0.56.0
+	golang.org/x/sync v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.37.0
 	software.sslmate.com/src/go-pkcs12 v0.7.3
