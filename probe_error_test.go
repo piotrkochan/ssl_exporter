@@ -14,9 +14,10 @@ import (
 
 func TestProbeErrorReason(t *testing.T) {
 	tests := []struct {
-		name string
-		err  error
-		want string
+		name   string
+		err    error
+		prober string
+		want   string
 	}{
 		{
 			name: "canceled",
@@ -64,6 +65,15 @@ func TestProbeErrorReason(t *testing.T) {
 			want: probeErrorHTTP,
 		},
 		{
+			name: "tls wrapped by http client",
+			err: &url.Error{
+				Op:  "Get",
+				URL: "https://example.com",
+				Err: errors.New("remote error: tls: handshake failure"),
+			},
+			want: probeErrorTLS,
+		},
+		{
 			name: "certificate text",
 			err:  errors.New("decoding certificates from response body"),
 			want: probeErrorCertificate,
@@ -84,15 +94,40 @@ func TestProbeErrorReason(t *testing.T) {
 			want: probeErrorHTTP,
 		},
 		{
-			name: "other",
-			err:  errors.New("unknown failure"),
-			want: probeErrorOther,
+			name:   "kubernetes fallback",
+			err:    errors.New("secrets is forbidden"),
+			prober: "kubernetes",
+			want:   probeErrorKubernetes,
+		},
+		{
+			name:   "starttls fallback",
+			err:    errors.New("MySQL packet is broken"),
+			prober: "tcp",
+			want:   probeErrorProtocol,
+		},
+		{
+			name:   "keystore fallback",
+			err:    errors.New("incorrect password"),
+			prober: "keystore",
+			want:   probeErrorFile,
+		},
+		{
+			name:   "keystore generic no certificates error",
+			err:    errors.New("No certificates found"),
+			prober: "keystore",
+			want:   probeErrorFile,
+		},
+		{
+			name:   "other",
+			err:    errors.New("unknown failure"),
+			prober: "unknown",
+			want:   probeErrorOther,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := probeErrorReason(tt.err); got != tt.want {
+			if got := probeErrorReason(tt.err, tt.prober); got != tt.want {
 				t.Fatalf("probeErrorReason() = %q, want %q", got, tt.want)
 			}
 		})

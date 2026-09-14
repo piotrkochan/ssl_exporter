@@ -94,13 +94,15 @@ check_probe() {
 check_probe_fails() {
     local target=$1
     local module=$2
+    local expected_reason=$3
     local result
 
     result=$(probe "$target" "$module")
-    if echo "$result" | grep -q 'ssl_probe_success 0'; then
+    if echo "$result" | grep -q 'ssl_probe_success 0' &&
+        echo "$result" | grep -Fq "ssl_probe_error{reason=\"$expected_reason\"} 1"; then
         return 0
     fi
-    echo "Expected ssl_probe_success 0"
+    echo "Expected ssl_probe_success 0 and ssl_probe_error reason=$expected_reason"
     echo "Full output:"
     echo "$result"
     return 1
@@ -457,7 +459,7 @@ else
 fi
 
 echo -n "Test nginx no SSL (expect fail): "
-if check_probe_fails "127.0.0.1:18080" "tcp"; then
+if check_probe_fails "127.0.0.1:18080" "tcp" "tls"; then
     pass "nginx no SSL correctly failed"
 else
     echo "FAIL: nginx no SSL should have failed"
@@ -521,7 +523,7 @@ else
 fi
 
 echo -n "Test keystore wrong password (expect fail): "
-if check_probe_fails "$SCRIPT_DIR/certs/keystore.jks" "keystore_wrongpass"; then
+if check_probe_fails "$SCRIPT_DIR/certs/keystore.jks" "keystore_wrongpass" "file"; then
     pass "keystore wrong password correctly failed"
 else
     echo "FAIL: keystore wrong password should have failed"
@@ -529,7 +531,7 @@ else
 fi
 
 echo -n "Test keystore unrecognized format (expect fail): "
-if check_probe_fails "$SCRIPT_DIR/certs/valid.crt" "keystore"; then
+if check_probe_fails "$SCRIPT_DIR/certs/valid.crt" "keystore" "file"; then
     pass "keystore unrecognized format correctly failed"
 else
     echo "FAIL: keystore unrecognized format should have failed"
@@ -537,7 +539,7 @@ else
 fi
 
 echo -n "Test server_name mismatch by IP without param (expect fail): "
-if check_probe_fails "https://127.0.0.1:18443" "https_servername"; then
+if check_probe_fails "https://127.0.0.1:18443" "https_servername" "certificate"; then
     pass "server_name mismatch correctly failed"
 else
     echo "FAIL: probe by IP without server_name should have failed verification"

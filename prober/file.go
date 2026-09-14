@@ -12,6 +12,10 @@ import (
 
 // ProbeFile collects certificate metrics from local files
 func ProbeFile(ctx context.Context, logger *slog.Logger, target string, module config.Module, registry *prometheus.Registry) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("file probe: %w", err)
+	}
+
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -30,7 +34,7 @@ func ProbeFile(ctx context.Context, logger *slog.Logger, target string, module c
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("context timeout, ran out of time")
+		return fmt.Errorf("file probe: %w", ctx.Err())
 	case err := <-errCh:
 		return err
 	}

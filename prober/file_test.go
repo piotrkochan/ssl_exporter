@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,16 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+func TestProbeFileCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := ProbeFile(ctx, newTestLogger(), "unused", config.Module{}, prometheus.NewRegistry())
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ProbeFile() error = %v, want context.Canceled", err)
+	}
+}
 
 // TestProbeFile tests a file
 func TestProbeFile(t *testing.T) {

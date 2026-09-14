@@ -136,8 +136,8 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
 
 The `reason` label on `ssl_probe_error` has a bounded set of values: `canceled`,
-`certificate`, `connection`, `dns`, `file`, `http`, `other`, `protocol`,
-`timeout`, or `tls`.
+`certificate`, `connection`, `dns`, `file`, `http`, `kubernetes`, `other`,
+`protocol`, `timeout`, or `tls`.
 
 ## Configuration
 

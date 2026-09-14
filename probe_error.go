@@ -18,6 +18,7 @@ const (
 	probeErrorDNS         = "dns"
 	probeErrorFile        = "file"
 	probeErrorHTTP        = "http"
+	probeErrorKubernetes  = "kubernetes"
 	probeErrorOther       = "other"
 	probeErrorProtocol    = "protocol"
 	probeErrorTimeout     = "timeout"
@@ -26,7 +27,7 @@ const (
 
 // probeErrorReason classifies probe errors into a bounded set of values safe
 // to use as a Prometheus label.
-func probeErrorReason(err error) string {
+func probeErrorReason(err error, prober string) string {
 	switch {
 	case errors.Is(err, context.Canceled):
 		return probeErrorCanceled
@@ -63,9 +64,10 @@ func probeErrorReason(err error) string {
 		return probeErrorFile
 	}
 
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		return probeErrorHTTP
+	// Untyped keystore errors concern the input file, format, or password. Typed
+	// certificate errors have already been handled above.
+	if prober == "keystore" {
+		return probeErrorFile
 	}
 
 	message := strings.ToLower(err.Error())
@@ -78,6 +80,24 @@ func probeErrorReason(err error) string {
 		return probeErrorProtocol
 	case strings.Contains(message, "http status"), strings.Contains(message, "response code"):
 		return probeErrorHTTP
+	}
+
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return probeErrorHTTP
+	}
+
+	switch prober {
+	case "file", "keystore", "kubeconfig":
+		return probeErrorFile
+	case "http", "https", "http_file":
+		return probeErrorHTTP
+	case "kubernetes":
+		return probeErrorKubernetes
+	case "tcp":
+		return probeErrorProtocol
+	case "tls_cipher":
+		return probeErrorTLS
 	default:
 		return probeErrorOther
 	}

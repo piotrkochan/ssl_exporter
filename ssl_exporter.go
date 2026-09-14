@@ -134,7 +134,7 @@ func probeHandler(logger *slog.Logger, w http.ResponseWriter, r *http.Request, c
 	err := probeFunc(ctx, probeLogger, target, module, registry)
 	probeDuration.Set(time.Since(start).Seconds())
 	if err != nil {
-		reason := probeErrorReason(err)
+		reason := probeErrorReason(err, module.Prober)
 		probeLogger.Error(err.Error(), "reason", reason)
 		probeError.WithLabelValues(reason).Set(1)
 		probeSuccess.Set(0)
