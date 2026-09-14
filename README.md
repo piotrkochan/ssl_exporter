@@ -125,6 +125,7 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_ocsp_responder_this_update | The thisUpdate value in the OCSP responder response. Expressed as a Unix Epoch Time                              |                                                                             | tcp, https |
 | ssl_probe_duration_seconds     | Returns how long the probe took to complete in seconds.                                                          |                                                                             | all        |
 | ssl_probe_success              | Was the probe successful? Boolean.                                                                               |                                                                             | all        |
+| ssl_probe_error                | Indicates a probe failure categorized by reason. Emitted only when a probe fails.                                | reason                                                                      | all        |
 | ssl_prober                     | The prober used by the exporter to connect to the target. Boolean.                                               | prober                                                                      | all        |
 | ssl_tls_version_info           | The TLS version used. Always 1.                                                                                  | version                                                                     | tcp, https |
 | ssl_verified_cert_not_after    | The date after which a certificate in the verified chain expires. Expressed as a Unix Epoch Time.                | chain_no, serial_no, issuer_cn, cn, dnsnames, ips, emails, ou               | tcp, https |
@@ -133,6 +134,10 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 | ssl_tls_key_exchange           | The key exchange mechanism used for the TLS connection. Always 1.                                                | key_exchange, post_quantum                                                  | tcp, https |
 | ssl_cipher_suite_supported     | Whether the cipher suite is supported by the server. 1=supported, 0=not supported, 2=not individually testable (TLS 1.3). | cipher_suite, insecure                                                      | tls_cipher |
 | ssl_key_exchange_supported     | Whether the key exchange group is supported by the server. 1=supported 0=not supported.                          | key_exchange, post_quantum                                                  | tls_cipher |
+
+The `reason` label on `ssl_probe_error` has a bounded set of values: `canceled`,
+`certificate`, `connection`, `dns`, `file`, `http`, `other`, `protocol`,
+`timeout`, or `tls`.
 
 ## Configuration
 

@@ -93,6 +93,9 @@ func TestProbeHandler(t *testing.T) {
 	if ok := strings.Contains(rr.Body.String(), "ssl_probe_success 1"); !ok {
 		t.Errorf("expected `ssl_probe_success 1`")
 	}
+	if ok := strings.Contains(rr.Body.String(), "ssl_probe_error"); ok {
+		t.Errorf("did not expect `ssl_probe_error` on a successful probe")
+	}
 
 	// Check prober metric
 	if ok := strings.Contains(rr.Body.String(), "ssl_prober{prober=\"https\"} 1"); !ok {
@@ -116,6 +119,9 @@ func TestProbeHandlerFail(t *testing.T) {
 	// Check probe success
 	if ok := strings.Contains(rr.Body.String(), "ssl_probe_success 0"); !ok {
 		t.Errorf("expected `ssl_probe_success 0`")
+	}
+	if ok := strings.Contains(rr.Body.String(), "ssl_probe_error{reason=\"connection\"} 1"); !ok {
+		t.Errorf("expected `ssl_probe_error{reason=\"connection\"} 1`")
 	}
 
 	// Check prober metric
