@@ -29,6 +29,9 @@ func ProbeKeystore(ctx context.Context, logger *slog.Logger, target string, modu
 	if err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("keystore probe: %w", err)
+	}
 
 	go func() {
 		files, err := doublestar.Glob(target)
@@ -46,7 +49,7 @@ func ProbeKeystore(ctx context.Context, logger *slog.Logger, target string, modu
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("context timeout, ran out of time")
+		return fmt.Errorf("keystore probe: %w", ctx.Err())
 	case err := <-errCh:
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,34 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+func TestProbeKeystoreCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := ProbeKeystore(ctx, newTestLogger(), "unused", config.Module{}, prometheus.NewRegistry())
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ProbeKeystore() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestProbeKeystorePreservesLoadError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid.keystore")
+	if err := os.WriteFile(path, []byte{0xDE, 0xAD, 0xBE, 0xEF}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := ProbeKeystore(
+		context.Background(),
+		newTestLogger(),
+		path,
+		config.Module{},
+		prometheus.NewRegistry(),
+	)
+	if err == nil || !strings.Contains(err.Error(), "unrecognized keystore format") {
+		t.Fatalf("ProbeKeystore() error = %v, want preserved format error", err)
+	}
+}
 
 // TestProbeKeystoreDuplicateAliases verifies that the same certificate stored
 // under multiple aliases is deduplicated into a single time series.

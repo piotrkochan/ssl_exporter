@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -337,7 +338,9 @@ func collectFileMetrics(logger *slog.Logger, files []string, registry *prometheu
 
 func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prometheus.Registry, password string) error {
 	var (
-		totalCerts       []*x509.Certificate
+		totalCerts []*x509.Certificate
+		loadErrors []error
+
 		keystoreNotAfter = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: prometheus.BuildFQName(namespace, "", "keystore_cert_not_after"),
@@ -358,12 +361,12 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
-			logger.Debug(fmt.Sprintf("Error reading file %s: %s", f, err))
+			loadErrors = append(loadErrors, fmt.Errorf("reading keystore file %q: %w", f, err))
 			continue
 		}
 		certs, err := readKeyStore(data, password)
 		if err != nil {
-			logger.Debug(fmt.Sprintf("Error loading keystore file %s: %s", f, err))
+			loadErrors = append(loadErrors, fmt.Errorf("loading keystore file %q: %w", f, err))
 			continue
 		}
 		// A single keystore can hold the same certificate under several aliases
@@ -385,7 +388,14 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 	}
 
 	if len(totalCerts) == 0 {
-		return fmt.Errorf("No certificates found")
+		if len(loadErrors) > 0 {
+			return fmt.Errorf("loading keystore files: %w", errors.Join(loadErrors...))
+		}
+		return errors.New("keystore contains no usable entries")
+	}
+
+	for _, err := range loadErrors {
+		logger.Debug("Skipping keystore file", "err", err)
 	}
 
 	return nil
