@@ -6,12 +6,12 @@ require (
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.3
-	github.com/prometheus/common v0.71.0
-	github.com/prometheus/exporter-toolkit v0.19.0
-	golang.org/x/crypto v0.56.0
+	github.com/prometheus/common v0.72.0
+	github.com/prometheus/exporter-toolkit v0.20.0
+	golang.org/x/crypto v0.57.0
 	golang.org/x/sync v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/client-go v0.37.0
+	k8s.io/client-go v0.37.1
 	software.sslmate.com/src/go-pkcs12 v0.7.3
 )
 
@@ -38,15 +38,15 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/oauth2 v0.37.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apimachinery v0.37.0 // indirect
+	k8s.io/apimachinery v0.37.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd // indirect
