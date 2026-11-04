@@ -554,16 +554,17 @@ else
     FAILED=1
 fi
 
-echo -n "Test external revoked OCSP responder (revoked.grc.com): "
-if curl -sk --connect-timeout 5 --max-time 10 "https://revoked.grc.com" >/dev/null 2>&1; then
-    if check_probe_ocsp_responder_revoked "revoked.grc.com:443" "https_ocsp_responder"; then
+OCSP_REVOKED_HOST="digicert-tls-ecc-p384-root-g5-revoked.chain-demos.digicert.com"
+echo -n "Test external revoked OCSP responder ($OCSP_REVOKED_HOST): "
+if curl -sk --connect-timeout 5 --max-time 10 "https://$OCSP_REVOKED_HOST" >/dev/null 2>&1; then
+    if check_probe_ocsp_responder_revoked "$OCSP_REVOKED_HOST:443" "https_ocsp_responder"; then
         pass "external revoked OCSP responder"
     else
         echo "FAIL: external revoked OCSP responder probe failed"
         FAILED=1
     fi
 else
-    echo "SKIP: revoked.grc.com is not reachable"
+    echo "SKIP: $OCSP_REVOKED_HOST is not reachable"
 fi
 
 echo ""
