@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -63,6 +64,13 @@ func LoadConfig(confFile string) (*Config, error) {
 
 	if err = decoder.Decode(&c); err != nil {
 		return c, fmt.Errorf("error parsing config file: %s", err)
+	}
+	if c == nil {
+		return nil, fmt.Errorf("configuration must not be null")
+	}
+	var extra interface{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("configuration must contain a single YAML document")
 	}
 
 	return c, nil
