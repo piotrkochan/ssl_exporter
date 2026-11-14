@@ -1,11 +1,60 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	yaml "gopkg.in/yaml.v3"
 )
+
+func TestLoadConfig(t *testing.T) {
+	valid := "default_module: tls\nmodules:\n  tls:\n    prober: tcp\n    timeout: 3s\n"
+	tests := []struct {
+		name, content, wantErr string
+		missing                bool
+	}{
+		{name: "valid", content: valid},
+		{name: "trailing comment", content: valid + "\n# end of configuration\n"},
+		{name: "missing file", missing: true, wantErr: "error reading config file"},
+		{name: "empty file", wantErr: "error parsing config file"},
+		{name: "invalid YAML", content: "modules: [", wantErr: "error parsing config file"},
+		{name: "unknown field", content: "moduels: {}", wantErr: "field moduels not found"},
+		{name: "null", content: "null", wantErr: "configuration must not be null"},
+		{name: "second document", content: valid + "---\nmodules: {}\n", wantErr: "single YAML document"},
+		{name: "empty second document", content: valid + "---\n", wantErr: "single YAML document"},
+		{name: "malformed second document", content: valid + "---\nmodules: [", wantErr: "single YAML document"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yml")
+			if !tt.missing {
+				if err := os.WriteFile(path, []byte(tt.content), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cfg, err := LoadConfig(path)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected %q, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg == nil || cfg.DefaultModule != "tls" || len(cfg.Modules) != 1 {
+				t.Fatalf("unexpected configuration: %+v", cfg)
+			}
+			module := cfg.Modules["tls"]
+			if module.Prober != "tcp" || module.Timeout != 3*time.Second {
+				t.Fatalf("unexpected module: %+v", module)
+			}
+		})
+	}
+}
 
 func TestOCSPSourceOrDefault(t *testing.T) {
 	if got := (OCSPProbe{}).SourceOrDefault(); got != OCSPSourceTLS {
