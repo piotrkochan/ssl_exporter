@@ -401,7 +401,19 @@ func collectKeystoreMetrics(logger *slog.Logger, files []string, registry *prome
 	return nil
 }
 
-func collectKubernetesSecretMetrics(secrets []kubernetesSecret, registry *prometheus.Registry) error {
+func collectKubernetesSecretMetrics(secrets []kubernetesSecret, secretLabels config.SecretLabels, registry *prometheus.Registry) error {
+	if err := secretLabels.Validate(); err != nil {
+		return err
+	}
+	labelKeys := make([]string, 0, len(secretLabels))
+	for key := range secretLabels {
+		labelKeys = append(labelKeys, key)
+	}
+	sort.Strings(labelKeys)
+	labelNames := []string{"namespace", "secret", "key", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"}
+	for _, key := range labelKeys {
+		labelNames = append(labelNames, secretLabels[key])
+	}
 	var (
 		totalCerts         []*x509.Certificate
 		kubernetesNotAfter = prometheus.NewGaugeVec(
@@ -409,14 +421,14 @@ func collectKubernetesSecretMetrics(secrets []kubernetesSecret, registry *promet
 				Name: prometheus.BuildFQName(namespace, "", "kubernetes_cert_not_after"),
 				Help: "NotAfter expressed as a Unix Epoch Time for a certificate found in a kubernetes secret",
 			},
-			[]string{"namespace", "secret", "key", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+			labelNames,
 		)
 		kubernetesNotBefore = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: prometheus.BuildFQName(namespace, "", "kubernetes_cert_not_before"),
 				Help: "NotBefore expressed as a Unix Epoch Time for a certificate found in a kubernetes secret",
 			},
-			[]string{"namespace", "secret", "key", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"},
+			labelNames,
 		)
 	)
 	registry.MustRegister(kubernetesNotAfter, kubernetesNotBefore)
@@ -437,6 +449,9 @@ func collectKubernetesSecretMetrics(secrets []kubernetesSecret, registry *promet
 					[]string{secret.Metadata.Namespace, secret.Metadata.Name, key},
 					labelValues(cert)...,
 				)
+				for _, labelKey := range labelKeys {
+					labels = append(labels, secret.Metadata.Labels[labelKey])
+				}
 
 				if !cert.NotAfter.IsZero() {
 					kubernetesNotAfter.WithLabelValues(labels...).Set(float64(cert.NotAfter.Unix()))

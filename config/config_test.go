@@ -1,11 +1,63 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	yaml "gopkg.in/yaml.v3"
 )
+
+func TestKubernetesSecretLabelsConfig(t *testing.T) {
+	tests := []struct {
+		name, mapping, want string
+	}{
+		{"valid", "{ssl-exporter.env: env, app.kubernetes.io/name: app}", ""},
+		{"empty", "{}", ""},
+		{"null", "null", ""},
+		{"duplicate output", "{app: env, environment: env}", "duplicate or reserved"},
+		{"empty source", "{'': env}", "source label key"},
+		{"empty output", "{app: ''}", "invalid metric label"},
+		{"invalid output", "{app: app-name}", "invalid metric label"},
+		{"numeric output", "{app: 123}", "invalid metric label"},
+		{"internal output", "{app: __name__}", "invalid metric label"},
+		{"list instead of mapping", "[env, app]", "cannot unmarshal"},
+		{"duplicate source", "{app: first, app: second}", "already defined"},
+	}
+	for _, label := range []string{"namespace", "secret", "key", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"} {
+		tests = append(tests, struct{ name, mapping, want string }{
+			"reserved " + label, "{app: " + label + "}", "duplicate or reserved",
+		})
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yml")
+			data := fmt.Sprintf("modules:\n  kubernetes:\n    prober: kubernetes\n    kubernetes:\n      secret_labels: %s\n", tt.mapping)
+			if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := LoadConfig(path)
+			if tt.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("expected %q, got %v", tt.want, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.name == "valid" {
+				labels := cfg.Modules["kubernetes"].Kubernetes.SecretLabels
+				if len(labels) != 2 || labels["ssl-exporter.env"] != "env" || labels["app.kubernetes.io/name"] != "app" {
+					t.Fatalf("unexpected mapping: %v", labels)
+				}
+			}
+		})
+	}
+}
 
 func TestOCSPSourceOrDefault(t *testing.T) {
 	if got := (OCSPProbe{}).SourceOrDefault(); got != OCSPSourceTLS {
