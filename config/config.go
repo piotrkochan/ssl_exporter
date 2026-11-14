@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
 	pconfig "github.com/prometheus/common/config"
+	"github.com/prometheus/common/model"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -230,8 +232,51 @@ type HTTPSProbe struct {
 
 // KubernetesProbe configures a kubernetes probe
 type KubernetesProbe struct {
-	Kubeconfig string                 `yaml:"kubeconfig,omitempty"`
-	Client     KubernetesClientConfig `yaml:"client,omitempty"`
+	Kubeconfig   string                 `yaml:"kubeconfig,omitempty"`
+	Client       KubernetesClientConfig `yaml:"client,omitempty"`
+	SecretLabels SecretLabels           `yaml:"secret_labels,omitempty"`
+}
+
+// SecretLabels maps Secret label keys to metric label names.
+type SecretLabels map[string]string
+
+func (labels *SecretLabels) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var mapping map[string]string
+	if err := unmarshal(&mapping); err != nil {
+		return err
+	}
+	if err := SecretLabels(mapping).Validate(); err != nil {
+		return err
+	}
+	*labels = mapping
+	return nil
+}
+
+// Validate rejects invalid, duplicate or reserved metric label names.
+func (labels SecretLabels) Validate() error {
+	used := map[string]bool{}
+	for _, name := range []string{"namespace", "secret", "key", "serial_no", "issuer_cn", "cn", "dnsnames", "ips", "emails", "ou"} {
+		used[name] = true
+	}
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		name := labels[key]
+		if key == "" {
+			return fmt.Errorf("secret_labels: source label key must not be empty")
+		}
+		if !model.LegacyValidation.IsValidLabelName(name) || strings.HasPrefix(name, "__") {
+			return fmt.Errorf("secret_labels: invalid metric label name %q", name)
+		}
+		if used[name] {
+			return fmt.Errorf("secret_labels: duplicate or reserved metric label name %q", name)
+		}
+		used[name] = true
+	}
+	return nil
 }
 
 // KubernetesClientConfig configures the Kubernetes API client.

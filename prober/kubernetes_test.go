@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ type fakeKubernetesClient struct {
 	secrets []kubernetesSecret
 }
 
-func (c *fakeKubernetesClient) ListTLSSecrets(context.Context) ([]kubernetesSecret, error) {
+func (c *fakeKubernetesClient) ListTLSSecrets(context.Context, string) ([]kubernetesSecret, error) {
 	return c.secrets, nil
 }
 
@@ -62,14 +63,14 @@ func TestKubernetesSecretsClient_ListTLSSecrets(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestKubernetesSecretsClient(t, server)
-	secrets, err := client.ListTLSSecrets(t.Context())
+	secrets, err := client.ListTLSSecrets(t.Context(), "")
 	if err != nil {
 		t.Fatalf("ListTLSSecrets() error: %v", err)
 	}
 	if len(secrets) != 1 {
 		t.Fatalf("ListTLSSecrets() returned %d secrets, want 1", len(secrets))
 	}
-	if secrets[0].Metadata != expected.Metadata {
+	if !reflect.DeepEqual(secrets[0].Metadata, expected.Metadata) {
 		t.Errorf("unexpected metadata: got %+v, want %+v", secrets[0].Metadata, expected.Metadata)
 	}
 	if got := string(secrets[0].Data["tls.crt"]); got != "certificate data" {
@@ -108,8 +109,8 @@ func TestKubernetesClientEndToEnd(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Errorf("unexpected method: got %q, want %q", r.Method, http.MethodGet)
 		}
-		if r.URL.Path != "/cluster/api/v1/secrets" {
-			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, "/cluster/api/v1/secrets")
+		if r.URL.Path != "/cluster/api/v1/namespaces/monitoring/secrets" {
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, "/cluster/api/v1/namespaces/monitoring/secrets")
 		}
 		if got := r.URL.Query().Get("fieldSelector"); got != "type=kubernetes.io/tls" {
 			t.Errorf("unexpected field selector: got %q", got)

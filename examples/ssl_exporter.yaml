@@ -72,6 +72,10 @@ modules:
       proxy_url: "socks5://localhost:8123"
   kubernetes:
     prober: kubernetes
+    kubernetes:
+      secret_labels:
+        environment: env
+        app.kubernetes.io/name: app
   kubernetes_kubeconfig:
     prober: kubernetes
     kubernetes:

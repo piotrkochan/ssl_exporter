@@ -411,6 +411,39 @@ curl "localhost:9219/probe?module=kubernetes&target=*/*"
 
 ```
 
+For a target such as `kube-system/*`, the exporter only lists Secrets in
+`kube-system`. Permission to list Secrets in that namespace is enough. Namespace
+patterns such as `*/*` require permission to list Secrets across the cluster.
+
+By default, Secret labels aren't included in the metrics. To copy labels from
+a Secret like this one:
+
+```yaml
+metadata:
+  labels:
+    environment: production
+    app.kubernetes.io/name: payments
+```
+
+Add a `secret_labels` mapping to your exporter module:
+
+```yaml
+modules:
+  kubernetes:
+    prober: kubernetes
+    kubernetes:
+      secret_labels:
+        environment: env
+        app.kubernetes.io/name: app
+```
+
+Here, `environment: env` copies the Secret's `environment` label into the
+metric's `env` label. Both `ssl_kubernetes_cert_not_after` and
+`ssl_kubernetes_cert_not_before` get `env="production", app="payments"` in
+addition to their usual labels. The exporter ignores Secret labels you haven't
+listed. If a mapped label is missing from a Secret, the corresponding metric
+label has an empty value.
+
 The exporter retrieves credentials and context configuration from the following
 sources in the following order:
 
@@ -574,6 +607,13 @@ target: <string>
 ```
 # The path of a kubeconfig file to configure the probe
 [ kubeconfig: <string> ]
+
+# Copy these Secret labels to both certificate metrics; missing values are empty.
+# Use valid, unique metric label names. Names starting with __ and existing
+# certificate metric labels are reserved.
+[ secret_labels:
+  <secret_label_key>: <metric_label_name>
+]
 
 # Kubernetes API client configuration
 [ client:

@@ -29,8 +29,9 @@ var (
 )
 
 type kubernetesObjectMeta struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Labels    map[string]string `json:"labels"`
 }
 
 type kubernetesSecret struct {
@@ -43,7 +44,7 @@ type kubernetesSecretList struct {
 }
 
 type kubernetesClient interface {
-	ListTLSSecrets(context.Context) ([]kubernetesSecret, error)
+	ListTLSSecrets(context.Context, string) ([]kubernetesSecret, error)
 }
 
 type kubernetesSecretsClient struct {
@@ -68,9 +69,19 @@ func probeKubernetes(ctx context.Context, target string, module config.Module, r
 
 	ns := parts[0]
 	name := parts[1]
+	if err := module.Kubernetes.SecretLabels.Validate(); err != nil {
+		return err
+	}
+
+	// Listing one namespace only needs permissions for that namespace.
+	// For glob or escaped patterns, list all namespaces and filter below.
+	namespace := ns
+	if strings.ContainsAny(ns, `*?[]{}\`) {
+		namespace = ""
+	}
 
 	var tlsSecrets []kubernetesSecret
-	secrets, err := client.ListTLSSecrets(ctx)
+	secrets, err := client.ListTLSSecrets(ctx, namespace)
 	if err != nil {
 		return err
 	}
@@ -88,7 +99,7 @@ func probeKubernetes(ctx context.Context, target string, module config.Module, r
 		}
 	}
 
-	return collectKubernetesSecretMetrics(tlsSecrets, registry)
+	return collectKubernetesSecretMetrics(tlsSecrets, module.Kubernetes.SecretLabels, registry)
 }
 
 // newKubeClient returns a minimal Kubernetes Secrets client from the supplied
@@ -172,8 +183,9 @@ func newKubernetesSecretsClient(restConfig *rest.Config, httpClient *http.Client
 	return &kubernetesSecretsClient{restClient: client}, nil
 }
 
-func (c *kubernetesSecretsClient) ListTLSSecrets(ctx context.Context) ([]kubernetesSecret, error) {
+func (c *kubernetesSecretsClient) ListTLSSecrets(ctx context.Context, namespace string) ([]kubernetesSecret, error) {
 	body, err := c.restClient.Get().
+		Namespace(namespace).
 		Resource("secrets").
 		Param("fieldSelector", "type=kubernetes.io/tls").
 		DoRaw(ctx)
