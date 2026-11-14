@@ -87,28 +87,6 @@ Flags:
       --version                  Show application version.
 ```
 
-### Checking configuration
-
-Validate a configuration before deploying or restarting the exporter:
-
-```bash
-ssl_exporter --config.check --config.file=ssl_exporter.yml
-```
-
-The command exits with status `0` on success or `1` on a configuration error,
-without opening a listening socket or probing any targets. It checks YAML syntax,
-unknown fields, the default module, prober names, and module settings such as
-STARTTLS protocols, timeouts, TLS client certificate/key pairing, and TLS cipher
-enumeration options. The file must contain a single, non-null YAML document.
-An empty module map is allowed. Without `--config.file`, the built-in defaults
-are checked.
-
-To also validate the exporter's TLS and authentication settings, pass
-`--web.config.file=web.yml`. This uses exporter-toolkit's `web.Validate`, including
-its checks of referenced web TLS certificates and keys and basic-auth hashes.
-Module credential files (such as CA files, client certificates, keystores, and
-kubeconfigs) and target availability are not checked.
-
 ### TLS and basic authentication
 
 The SSL Exporter supports TLS and basic authentication. This enables better
