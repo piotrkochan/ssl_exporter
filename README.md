@@ -73,6 +73,8 @@ Flags:
                                  Path under which to expose metrics
       --web.probe-path="/probe"  Path under which to expose the probe endpoint
       --config.file=""           SSL exporter configuration file
+      --config.check             Validate configuration and exit without starting
+                                 the server
       --web.listen-address=:9219 ...
                                  Addresses on which to expose metrics and web interface.
                                  Repeatable for multiple addresses.

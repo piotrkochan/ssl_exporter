@@ -156,6 +156,7 @@ func main() {
 		metricsPath    = kingpin.Flag("web.metrics-path", "Path under which to expose metrics").Default("/metrics").String()
 		probePath      = kingpin.Flag("web.probe-path", "Path under which to expose the probe endpoint").Default("/probe").String()
 		configFile     = kingpin.Flag("config.file", "SSL exporter configuration file").Default("").String()
+		configCheck    = kingpin.Flag("config.check", "Validate configuration and exit without starting the server").Bool()
 		toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9219")
 		promslogConfig = &promslog.Config{}
 		err            error
@@ -175,6 +176,19 @@ func main() {
 			logger.Error("Error loading config", "err", err)
 			os.Exit(1)
 		}
+	}
+
+	if *configCheck {
+		if err := prober.ValidateConfig(conf); err != nil {
+			logger.Error("Error validating config", "err", err)
+			os.Exit(1)
+		}
+		if err := web.Validate(*toolkitFlags.WebConfigFile); err != nil {
+			logger.Error("Error validating web config", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("Configuration is valid")
+		return
 	}
 
 	logger.Info(fmt.Sprintf("Starting %s_exporter %s", namespace, version.Info()))
