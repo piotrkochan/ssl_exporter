@@ -1,5 +1,7 @@
 module github.com/piotrkochan/ssl_exporter/v2
 
+go 1.27.4
+
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/bmatcuk/doublestar/v2 v2.0.4
@@ -56,5 +58,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-go 1.27.2
